@@ -4,12 +4,16 @@ import {
   getLeagueRosters,
   getAllPlayers,
   getAllHistoricalTrades,
+  getAllHistoricalDrafts,
 } from '@/lib/sleeper';
 import { getLeagueId } from '@/lib/utils';
 import { fetchFantasyCalcValues } from '@/lib/rankings';
-import { FantasyCalcSettings } from '@/lib/types';
+import { generateAllReportCards } from '@/lib/tradeAnalysis';
+import { fetchHistoricalValues, buildPlayerNameMapping } from '@/lib/historicalValues';
+import { FantasyCalcSettings, SleeperTransaction } from '@/lib/types';
 import TradeAnalyzer from '@/components/TradeAnalyzer';
 import TradeHistory from '@/components/TradeHistory';
+import TradeReportCards from '@/components/TradeReportCard';
 
 export const revalidate = 60;
 
@@ -48,12 +52,15 @@ export default async function TradesPage() {
   }
 
   try {
-    const [league, users, rosters, players, allSeasonTrades] = await Promise.all([
+    // Fetch all data in parallel
+    const [league, users, rosters, players, allSeasonTrades, draftMap, historicalData] = await Promise.all([
       getLeague(leagueId),
       getLeagueUsers(leagueId),
       getLeagueRosters(leagueId),
       getAllPlayers(),
       getAllHistoricalTrades(leagueId),
+      getAllHistoricalDrafts(leagueId),
+      fetchHistoricalValues(),
     ]);
 
     // Derive league settings for FantasyCalc API
@@ -63,12 +70,31 @@ export default async function TradesPage() {
       league.total_rosters
     );
 
-    // Fetch player and pick values
+    // Fetch player and pick values (for fallback)
     const { playerValues, pickValues } = await fetchFantasyCalcValues(settings);
 
     // Convert Maps to serializable objects for client component
     const playerValuesObj = Object.fromEntries(playerValues);
     const pickValuesObj = Object.fromEntries(pickValues);
+
+    // Build player name mapping (Sleeper ID -> historical column name)
+    const playerMapping = buildPlayerNameMapping(players, historicalData.playerColumns);
+
+    // Collect all trades across all seasons for report cards
+    const allTrades: SleeperTransaction[] = allSeasonTrades.flatMap(s => s.trades);
+
+    // Generate report cards for all teams (with historical data for accurate values)
+    const reportCards = generateAllReportCards(
+      allTrades,
+      rosters,
+      users,
+      players,
+      playerValuesObj,
+      pickValuesObj,
+      draftMap,
+      historicalData,
+      playerMapping
+    );
 
     return (
       <div className="space-y-8">
@@ -85,6 +111,9 @@ export default async function TradesPage() {
           playerValues={playerValuesObj}
           pickValues={pickValuesObj}
         />
+
+        {/* Trade Report Cards */}
+        <TradeReportCards reportCards={reportCards} />
 
         {/* Trade History - All Seasons */}
         <TradeHistory

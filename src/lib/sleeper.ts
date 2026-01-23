@@ -226,6 +226,57 @@ export async function getAllHistoricalTrades(currentLeagueId: string): Promise<S
   return allSeasonTrades;
 }
 
+// Draft pick to player mapping (what picks became)
+export interface DraftedPlayer {
+  season: string;
+  round: number;
+  pick: number;
+  rosterId: number;
+  playerId: string;
+  playerName: string;
+}
+
+// Get all draft picks from all historical seasons
+export async function getAllHistoricalDrafts(currentLeagueId: string): Promise<Map<string, DraftedPlayer>> {
+  // Map key format: "season_round_rosterId" -> DraftedPlayer
+  const draftMap = new Map<string, DraftedPlayer>();
+  let leagueId: string | null = currentLeagueId;
+
+  while (leagueId) {
+    try {
+      const league = await getLeague(leagueId);
+      const drafts = await getLeagueDrafts(leagueId);
+
+      for (const draft of drafts) {
+        try {
+          const picks = await getDraftPicks(draft.draft_id);
+          for (const pick of picks) {
+            const key = `${draft.season}_${pick.round}_${pick.roster_id}`;
+            draftMap.set(key, {
+              season: draft.season,
+              round: pick.round,
+              pick: pick.pick_no,
+              rosterId: pick.roster_id,
+              playerId: pick.player_id,
+              playerName: pick.metadata?.first_name && pick.metadata?.last_name
+                ? `${pick.metadata.first_name} ${pick.metadata.last_name}`
+                : pick.player_id,
+            });
+          }
+        } catch {
+          // Draft picks might not be available
+        }
+      }
+
+      leagueId = league.previous_league_id;
+    } catch {
+      break;
+    }
+  }
+
+  return draftMap;
+}
+
 // Get previous league IDs (for history)
 export async function getLeagueHistory(leagueId: string): Promise<SleeperLeague[]> {
   const history: SleeperLeague[] = [];

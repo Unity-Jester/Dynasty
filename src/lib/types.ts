@@ -355,3 +355,78 @@ export interface FantasyCalcSettings {
   ppr: 0 | 0.5 | 1;
   numTeams: number;
 }
+
+// Trade Report Card Types
+export type TradeGrade = 'A+' | 'A' | 'A-' | 'B+' | 'B' | 'B-' | 'C+' | 'C' | 'C-' | 'D' | 'F';
+
+export interface TradeAssetValue {
+  historical: number;  // Estimated value at time of trade
+  current: number;     // Current value
+  average: number;     // Average of historical and current (used for display/ranking)
+}
+
+export interface TradePlayer {
+  id: string;
+  name: string;
+  position: string;
+  value: TradeAssetValue;
+  ageAtTrade?: number;
+}
+
+export interface AnalyzedPick {
+  season: string;
+  round: number;
+  value: TradeAssetValue;
+  becamePlayer?: string;
+  becamePlayerId?: string;
+  wasUsedByTeam: boolean;  // True if team used the pick, false if traded away before draft
+}
+
+export interface TradeSideAnalysis {
+  players: TradePlayer[];
+  picks: AnalyzedPick[];
+  totalValue: TradeAssetValue;
+}
+
+export interface TradeAnalysis {
+  tradeId: string;
+  date: number;
+  partnerId: number;
+  received: TradeSideAnalysis;
+  given: TradeSideAnalysis;
+  netValue: TradeAssetValue;
+  result: 'win' | 'loss' | 'push';
+}
+
+export interface PositionBreakdown {
+  position: string;
+  received: number;
+  given: number;
+  net: number;
+}
+
+export interface TradePartner {
+  rosterId: number;
+  teamName: string;
+  tradeCount: number;
+  netValue: number;
+}
+
+export interface TeamReportCard {
+  rosterId: number;
+  ownerId: string;
+  teamName: string;
+  avatar: string | null;
+  grade: TradeGrade;
+  gradeScore: number;
+  totalTrades: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+  totalValueGained: number;
+  bestTrade: TradeAnalysis | null;
+  worstTrade: TradeAnalysis | null;
+  tradePartners: TradePartner[];
+  positionBreakdown: PositionBreakdown[];
+  trades: TradeAnalysis[];
+}
