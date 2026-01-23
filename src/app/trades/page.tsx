@@ -15,7 +15,7 @@ import TradeAnalyzer from '@/components/TradeAnalyzer';
 import TradeHistory from '@/components/TradeHistory';
 import TradeReportCards from '@/components/TradeReportCard';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 // Derive fantasy calc settings from Sleeper league data
 function deriveLeagueSettings(
