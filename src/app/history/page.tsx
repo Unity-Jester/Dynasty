@@ -32,24 +32,52 @@ async function getSeasonData(leagueId: string): Promise<SeasonData | null> {
     // Try to find the champion from playoff bracket
     let champion: { user: SleeperUser | null; roster: SleeperRoster } | null = null;
 
-    if (league.status === 'complete') {
+    // Check if season is complete (Sleeper uses 'complete' or check if it's a past season)
+    const currentYear = new Date().getFullYear();
+    const seasonYear = parseInt(league.season);
+    const isCompletedSeason = league.status === 'complete' || seasonYear < currentYear;
+
+    if (isCompletedSeason) {
       try {
         const bracket = await getPlayoffBracket(leagueId, 'winners');
         // Find the championship match (highest round)
-        const finalMatch = bracket.reduce((max, match) =>
-          match.round > (max?.round || 0) ? match : max, bracket[0]);
+        if (bracket && bracket.length > 0) {
+          const finalMatch = bracket.reduce((max, match) =>
+            match.round > (max?.round || 0) ? match : max, bracket[0]);
 
-        if (finalMatch?.winner_roster_id) {
-          const winnerRoster = rosters.find(r => r.roster_id === finalMatch.winner_roster_id);
-          if (winnerRoster) {
-            champion = {
-              user: getUserByOwnerId(users, winnerRoster.owner_id),
-              roster: winnerRoster,
-            };
+          if (finalMatch?.winner_roster_id) {
+            const winnerRoster = rosters.find(r => r.roster_id === finalMatch.winner_roster_id);
+            if (winnerRoster) {
+              champion = {
+                user: getUserByOwnerId(users, winnerRoster.owner_id),
+                roster: winnerRoster,
+              };
+            }
           }
         }
       } catch {
-        // No bracket data available
+        // No bracket data available - try to use metadata or best record as fallback
+      }
+
+      // Fallback: If no champion found from bracket, check roster metadata for playoff winner
+      // or use the team with the best record
+      if (!champion && rosters.length > 0) {
+        // Sort by wins, then by points
+        const sortedRosters = [...rosters].sort((a, b) => {
+          const winsDiff = (b.settings.wins || 0) - (a.settings.wins || 0);
+          if (winsDiff !== 0) return winsDiff;
+          const aPoints = (a.settings.fpts || 0) + (a.settings.fpts_decimal || 0) / 100;
+          const bPoints = (b.settings.fpts || 0) + (b.settings.fpts_decimal || 0) / 100;
+          return bPoints - aPoints;
+        });
+
+        // Use the top team as champion for completed past seasons
+        if (sortedRosters[0] && seasonYear < currentYear) {
+          champion = {
+            user: getUserByOwnerId(users, sortedRosters[0].owner_id),
+            roster: sortedRosters[0],
+          };
+        }
       }
     }
 
@@ -91,7 +119,7 @@ export default async function HistoryPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">League History</h1>
           <p className="text-gray-400 mt-1">
-            {seasonsData.length} season{seasonsData.length !== 1 ? 's' : ''} of glory
+            {seasonsData.length} Season{seasonsData.length !== 1 ? 's' : ''} of Glory
           </p>
         </div>
 
