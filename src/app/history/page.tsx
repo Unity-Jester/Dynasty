@@ -40,13 +40,25 @@ async function getSeasonData(leagueId: string): Promise<SeasonData | null> {
     if (isCompletedSeason) {
       try {
         const bracket = await getPlayoffBracket(leagueId, 'winners');
-        // Find the championship match (highest round)
-        if (bracket && bracket.length > 0) {
-          const finalMatch = bracket.reduce((max, match) =>
-            match.round > (max?.round || 0) ? match : max, bracket[0]);
 
-          if (finalMatch?.winner_roster_id) {
-            const winnerRoster = rosters.find(r => r.roster_id === finalMatch.winner_roster_id);
+        if (bracket && bracket.length > 0) {
+          // Sleeper API returns abbreviated keys: r=round, m=matchup_id, w=winner, p=placement
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const bracketAny = bracket as any[];
+
+          // Find the championship match - look for p=1 (1st place) or highest round
+          const championshipMatch = bracketAny.find(m => m.p === 1)
+            || bracketAny.reduce((max, m) => {
+              const round = m.r || m.round || 0;
+              const maxRound = max?.r || max?.round || 0;
+              return round > maxRound ? m : max;
+            }, bracketAny[0]);
+
+          // Get winner - could be 'w' (abbreviated) or 'winner_roster_id'
+          const winnerId = championshipMatch?.w || championshipMatch?.winner_roster_id;
+
+          if (winnerId) {
+            const winnerRoster = rosters.find(r => r.roster_id === winnerId);
             if (winnerRoster) {
               champion = {
                 user: getUserByOwnerId(users, winnerRoster.owner_id),
@@ -55,29 +67,8 @@ async function getSeasonData(leagueId: string): Promise<SeasonData | null> {
             }
           }
         }
-      } catch {
-        // No bracket data available - try to use metadata or best record as fallback
-      }
-
-      // Fallback: If no champion found from bracket, check roster metadata for playoff winner
-      // or use the team with the best record
-      if (!champion && rosters.length > 0) {
-        // Sort by wins, then by points
-        const sortedRosters = [...rosters].sort((a, b) => {
-          const winsDiff = (b.settings.wins || 0) - (a.settings.wins || 0);
-          if (winsDiff !== 0) return winsDiff;
-          const aPoints = (a.settings.fpts || 0) + (a.settings.fpts_decimal || 0) / 100;
-          const bPoints = (b.settings.fpts || 0) + (b.settings.fpts_decimal || 0) / 100;
-          return bPoints - aPoints;
-        });
-
-        // Use the top team as champion for completed past seasons
-        if (sortedRosters[0] && seasonYear < currentYear) {
-          champion = {
-            user: getUserByOwnerId(users, sortedRosters[0].owner_id),
-            roster: sortedRosters[0],
-          };
-        }
+      } catch (error) {
+        console.error(`Error fetching playoff bracket for ${league.season}:`, error);
       }
     }
 
