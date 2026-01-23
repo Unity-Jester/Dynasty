@@ -4,10 +4,12 @@ A Next.js wrapper website for Sleeper fantasy football leagues with enhanced fea
 
 ## Features
 
-- **Dashboard**: Current standings, this week's matchups, and recent activity
+- **Dashboard**: Current standings, this week's matchups, power rankings, and recent activity
 - **Matchup Center**: Week-by-week matchup browser with detailed lineup comparisons
-- **Trade Center**: Trade analyzer and past trades browser
-- **League History**: Championship tracker, all-time records, and season archives
+- **Draft Center**: Draft board visualization, draft value analysis comparing pick value at draft time vs current value, manager rankings by draft performance, best/worst picks tracking across all seasons
+- **Trade Center**: Trade analyzer with real-time valuations, trade report cards with grades (A+ to F) and win/loss records, historical trade browser across all seasons with value analysis at time of trade
+- **League History**: Championship tracker, all-time records, and season-by-season archive
+- **Settings**: League configuration display including roster positions, scoring settings, waiver rules, and trade settings
 
 ## Setup
 
@@ -60,18 +62,27 @@ src/
 │   ├── layout.tsx          # Root layout with navigation
 │   ├── page.tsx            # Dashboard
 │   ├── matchups/           # Matchup center
-│   ├── trades/             # Trade analyzer
+│   ├── draft/              # Draft center with value analysis
+│   ├── trades/             # Trade center with report cards
 │   ├── history/            # League history
-│   └── api/sleeper/        # API proxy
+│   ├── settings/           # League settings display
+│   └── api/sleeper/        # API proxy with caching
 ├── components/
 │   ├── Navigation.tsx      # Site navigation
 │   ├── Standings.tsx       # Standings table
+│   ├── PowerRankings.tsx   # Power rankings display
 │   ├── Matchup.tsx         # Matchup card
 │   ├── Roster.tsx          # Roster display
 │   ├── TransactionCard.tsx # Transaction display
-│   └── TradeAnalyzer.tsx   # Trade evaluation form
+│   ├── TradeAnalyzer.tsx   # Trade evaluation form
+│   ├── TradeHistory.tsx    # Historical trades browser
+│   ├── TradeReportCard.tsx # Trade report cards with grades
+│   └── CollapsibleSection.tsx # Reusable collapsible UI
 └── lib/
     ├── sleeper.ts          # Sleeper API client
     ├── types.ts            # TypeScript types
-    └── utils.ts            # Helper functions
+    ├── utils.ts            # Helper functions
+    ├── rankings.ts         # FantasyCalc player values integration
+    ├── tradeAnalysis.ts    # Trade analysis and grading logic
+    └── historicalValues.ts # Historical player/pick value data
 ```
