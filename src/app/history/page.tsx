@@ -7,7 +7,9 @@ import {
   getUserByOwnerId,
   getUserAvatarUrl,
   formatPoints,
+  getHeadToHeadRecords,
 } from '@/lib/sleeper';
+import H2HGrid from '@/components/H2HGrid';
 import { getLeagueId, ordinalSuffix, getTeamName } from '@/lib/utils';
 import Image from 'next/image';
 import { SleeperLeague, SleeperUser, SleeperRoster } from '@/lib/types';
@@ -88,17 +90,28 @@ export default async function HistoryPage() {
     // Get league history chain
     const leagueChain = await getLeagueHistory(leagueId);
 
-    // Fetch data for all seasons
-    const seasonsData: SeasonData[] = [];
-    for (const league of leagueChain) {
-      const data = await getSeasonData(league.league_id);
-      if (data) {
-        seasonsData.push(data);
-      }
-    }
+    // Fetch every season's data and the all-time H2H map concurrently
+    const [seasonsResults, h2hRecords] = await Promise.all([
+      Promise.all(leagueChain.map(league => getSeasonData(league.league_id))),
+      getHeadToHeadRecords(leagueId),
+    ]);
+    const seasonsData = seasonsResults.filter((d): d is SeasonData => d !== null);
 
     // Calculate all-time records
     const allTimeRecords = calculateAllTimeRecords(seasonsData);
+
+    // Unique owners across all seasons, named by their most recent season
+    const ownerMap = new Map<string, string>();
+    for (const season of seasonsData) {
+      for (const roster of season.rosters) {
+        if (roster.owner_id && !ownerMap.has(roster.owner_id)) {
+          const user = getUserByOwnerId(season.users, roster.owner_id);
+          ownerMap.set(roster.owner_id, getTeamName(user, roster.roster_id));
+        }
+      }
+    }
+    const owners = Array.from(ownerMap, ([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     return (
       <div className="space-y-8">
@@ -202,6 +215,9 @@ export default async function HistoryPage() {
             </div>
           </div>
         </div>
+
+        {/* Head-to-Head Rivalry Grid */}
+        <H2HGrid owners={owners} h2hRecords={h2hRecords} />
 
         {/* Season-by-Season Archive */}
         <div className="bg-sleeper-darker rounded-lg overflow-hidden">

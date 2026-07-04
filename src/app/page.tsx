@@ -6,13 +6,17 @@ import {
   getAllSeasonTransactions,
   getNFLState,
   getAllPlayers,
+  getSeasonWeeklyMatchups,
   pairMatchups,
 } from '@/lib/sleeper';
 import { getLeagueId } from '@/lib/utils';
+import { calculateLuckIndex, calculateWeeklyAwards } from '@/lib/seasonStats';
 import Standings from '@/components/Standings';
 import Matchup from '@/components/Matchup';
 import TransactionCard from '@/components/TransactionCard';
 import PowerRankings from '@/components/PowerRankings';
+import LuckIndex from '@/components/LuckIndex';
+import WeeklyAwards from '@/components/WeeklyAwards';
 
 export const revalidate = 60; // Revalidate every 60 seconds
 
@@ -58,12 +62,18 @@ export default async function DashboardPage() {
       return `Week ${currentWeek}`;
     };
 
-    const [matchups, transactions] = await Promise.all([
+    const regularSeasonWeeks = Math.max(1, (league.settings.playoff_week_start || 15) - 1);
+    const [matchups, transactions, weeklyMatchups] = await Promise.all([
       getLeagueMatchups(leagueId, currentWeek),
       getAllSeasonTransactions(leagueId, currentWeek),
+      isPreseason
+        ? Promise.resolve([] as Awaited<ReturnType<typeof getSeasonWeeklyMatchups>>)
+        : getSeasonWeeklyMatchups(leagueId, regularSeasonWeeks),
     ]);
 
     const matchupPairs = pairMatchups(matchups, rosters, users);
+    const luckRows = calculateLuckIndex(weeklyMatchups);
+    const weeklyAwards = calculateWeeklyAwards(weeklyMatchups);
 
     // Get recent transactions (last 10)
     const recentTransactions = transactions
@@ -83,8 +93,18 @@ export default async function DashboardPage() {
         {/* Standings - Full Width */}
         <Standings rosters={rosters} users={users} />
 
+        {/* Weekly Awards */}
+        {weeklyAwards && (
+          <WeeklyAwards awards={weeklyAwards} rosters={rosters} users={users} />
+        )}
+
         {/* Power Rankings */}
         <PowerRankings rosters={rosters} users={users} players={players} />
+
+        {/* Luck Index */}
+        {luckRows.length > 0 && (
+          <LuckIndex rows={luckRows} rosters={rosters} users={users} />
+        )}
 
         {/* This Week's Matchups */}
         <div>

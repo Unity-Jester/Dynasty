@@ -209,6 +209,18 @@ export function buildClientPlayersMap(
   return slim;
 }
 
+// All weeks of matchups for one season, fetched concurrently.
+// Index 0 = week 1; failed/missing weeks come back empty.
+export async function getSeasonWeeklyMatchups(
+  leagueId: string,
+  maxWeek: number
+): Promise<SleeperMatchup[][]> {
+  const weeks = Array.from({ length: maxWeek }, (_, i) => i + 1);
+  return Promise.all(
+    weeks.map(week => getLeagueMatchups(leagueId, week).catch(() => [] as SleeperMatchup[]))
+  );
+}
+
 // Get trades only
 export async function getLeagueTrades(leagueId: string, maxWeek: number = 18): Promise<SleeperTransaction[]> {
   const transactions = await getAllSeasonTransactions(leagueId, maxWeek);
