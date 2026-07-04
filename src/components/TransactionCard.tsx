@@ -48,7 +48,7 @@ export default function TransactionCard({ transaction, rosters, users, players }
     ])];
 
     return (
-      <div className="bg-sleeper-darker rounded-lg p-4">
+      <div className="panel p-4">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-medium text-sleeper-accent uppercase">Trade</span>
           <span className="text-xs text-gray-500">{timeAgo(transaction.created)}</span>
@@ -56,7 +56,7 @@ export default function TransactionCard({ transaction, rosters, users, players }
 
         <div className="space-y-3">
           {involvedTeams.map((rosterId) => (
-            <div key={rosterId} className="border-b border-gray-800 pb-3 last:border-0 last:pb-0">
+            <div key={rosterId} className="border-b border-white/[0.06] pb-3 last:border-0 last:pb-0">
               <div className="flex items-center gap-2 mb-2">
                 <Image
                   src={getUserAvatarUrl(getTeamAvatar(rosterId))}
@@ -114,7 +114,7 @@ export default function TransactionCard({ transaction, rosters, users, players }
   const rosterId = transaction.roster_ids[0];
 
   return (
-    <div className="bg-sleeper-darker rounded-lg p-4">
+    <div className="panel p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className={cn(

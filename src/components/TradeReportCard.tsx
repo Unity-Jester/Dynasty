@@ -109,7 +109,7 @@ function ReportCard({ card, rank }: { card: TeamReportCard; rank: number }) {
     : 0;
 
   return (
-    <div className="bg-sleeper-darker rounded-lg overflow-hidden">
+    <div className="panel overflow-hidden">
       {/* Header - Always visible */}
       <button
         onClick={() => setExpanded(!expanded)}

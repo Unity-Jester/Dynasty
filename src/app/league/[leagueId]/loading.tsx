@@ -8,7 +8,7 @@ export default function DashboardLoading() {
       </div>
 
       {/* Standings skeleton */}
-      <div className="bg-sleeper-darker rounded-lg p-4 space-y-3">
+      <div className="panel p-4 space-y-3">
         <div className="h-6 w-32 bg-gray-700 rounded animate-pulse" />
         {[1, 2, 3, 4, 5, 6].map((i) => (
           <div key={i} className="flex items-center gap-3">
@@ -22,7 +22,7 @@ export default function DashboardLoading() {
       {/* Matchups skeleton */}
       <div className="grid md:grid-cols-2 gap-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-sleeper-darker rounded-lg p-4 space-y-3">
+          <div key={i} className="panel p-4 space-y-3">
             <div className="h-5 w-3/4 bg-gray-700 rounded animate-pulse" />
             <div className="h-5 w-2/3 bg-gray-800 rounded animate-pulse" />
           </div>

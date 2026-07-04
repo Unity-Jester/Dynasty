@@ -14,7 +14,7 @@ export default function MatchupsLoading() {
       {/* Matchup cards skeleton */}
       <div className="grid gap-4 md:grid-cols-2">
         {[1, 2, 3, 4, 5, 6].map((i) => (
-          <div key={i} className="bg-sleeper-darker rounded-lg p-4">
+          <div key={i} className="panel p-4">
             <div className="flex items-center justify-between">
               {/* Team 1 */}
               <div className="flex items-center gap-3 flex-1">

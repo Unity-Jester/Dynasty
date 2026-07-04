@@ -334,7 +334,7 @@ export default function TradeAnalyzer({
     : sides.map(() => 100 / sides.length);
 
   return (
-    <div className="bg-sleeper-darker rounded-lg p-4">
+    <div className="panel p-4">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-white">Trade Calculator</h2>
         <div className="flex items-center gap-3">

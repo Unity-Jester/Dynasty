@@ -82,30 +82,45 @@ export default function LeaguePicker() {
   };
 
   return (
-    <div className="max-w-lg mx-auto py-12">
-      <div className="text-center mb-8">
-        <div className="w-14 h-14 bg-sleeper-accent rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <span className="text-sleeper-dark font-bold text-2xl">S</span>
+    <div className="max-w-lg mx-auto py-16">
+      <div className="text-center mb-10">
+        <div
+          className="w-16 h-16 rounded-2xl bg-gradient-to-b from-gold-400 to-gold-600 flex items-center justify-center mx-auto mb-6 shadow-gold-glow animate-rise"
+          style={{ animationDelay: '0ms' }}
+        >
+          <svg viewBox="0 0 24 24" className="w-9 h-9 text-sleeper-dark" fill="currentColor" aria-hidden="true">
+            <path d="M3 7.5l4.6 4.1L12 4.5l4.4 7.1L21 7.5l-1.7 9.7a1 1 0 01-1 .8H5.7a1 1 0 01-1-.8L3 7.5z" />
+          </svg>
         </div>
-        <h1 className="text-2xl font-bold text-white mb-2">Sleeper League Hub</h1>
-        <p className="text-gray-400">
-          Standings, matchups, trade grades, draft analysis, and league history for any Sleeper league.
+        <h1
+          className="font-display text-4xl sm:text-5xl text-white mb-4 animate-rise"
+          style={{ animationDelay: '80ms' }}
+        >
+          Dynasty <span className="text-gold-gradient">League Hub</span>
+        </h1>
+        <p className="text-gray-400 animate-rise" style={{ animationDelay: '160ms' }}>
+          Standings, matchups, trade grades, draft analysis, and league history &mdash;
+          a private clubhouse for any Sleeper league.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-3 animate-rise"
+        style={{ animationDelay: '240ms' }}
+      >
         <input
           type="text"
           value={input}
           onChange={e => setInput(e.target.value)}
           placeholder="League ID or Sleeper username"
-          className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-sleeper-accent"
+          className="w-full px-4 py-3.5 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gold-500/60 focus:bg-white/[0.06] transition-colors"
           autoFocus
         />
         <button
           type="submit"
           disabled={loading || !input.trim()}
-          className="w-full px-4 py-3 bg-sleeper-accent text-sleeper-dark font-semibold rounded-lg hover:bg-sleeper-accent/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-4 py-3.5 bg-gradient-to-b from-gold-400 to-gold-600 text-sleeper-dark font-semibold rounded-xl hover:shadow-gold-glow hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
         >
           {loading ? 'Looking up…' : 'View League'}
         </button>
@@ -122,7 +137,7 @@ export default function LeaguePicker() {
             <button
               key={league.league_id}
               onClick={() => openLeague(league.league_id)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-sleeper-darker border border-gray-800 rounded-lg hover:border-sleeper-accent transition-colors text-left"
+              className="w-full flex items-center justify-between px-4 py-3 panel panel-hover text-left"
             >
               <div>
                 <p className="text-white font-medium">{league.name}</p>

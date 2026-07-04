@@ -1,6 +1,6 @@
-# Sleeper Fantasy Football League Hub
+# Dynasty League Hub
 
-A Next.js wrapper website for Sleeper fantasy football leagues with enhanced features. Works with **any** Sleeper league — enter a league ID or Sleeper username on the landing page, or configure a default league for your own deployment.
+A premium Next.js hub for Sleeper fantasy football leagues with enhanced features. Works with **any** Sleeper league — enter a league ID or Sleeper username on the landing page, or configure a default league for your own deployment.
 
 ## Features
 

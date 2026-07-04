@@ -23,11 +23,11 @@ export default function Matchup({ matchup, players, showStarters = false, h2hRec
   const isTied = team1.points === team2.points && team1.points > 0;
 
   return (
-    <div className="bg-sleeper-darker rounded-lg overflow-hidden">
+    <div className="panel panel-hover overflow-hidden">
       <div className="p-4">
         {/* H2H Record Banner */}
         {h2hRecord && (h2hRecord.wins > 0 || h2hRecord.losses > 0 || h2hRecord.ties > 0) && (
-          <div className="mb-3 pb-3 border-b border-gray-800">
+          <div className="mb-3 pb-3 border-b border-white/[0.06]">
             <div className="flex items-center justify-center gap-2 text-xs">
               <span className="text-gray-500">All-Time H2H:</span>
               <span className={cn(

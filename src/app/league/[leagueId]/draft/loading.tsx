@@ -8,8 +8,8 @@ export default function DraftLoading() {
       </div>
 
       {/* Draft Board skeleton */}
-      <div className="bg-sleeper-darker rounded-lg overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-800">
+      <div className="panel overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/[0.06]">
           <div className="h-6 w-40 bg-gray-700 rounded animate-pulse" />
           <div className="h-4 w-24 bg-gray-800 rounded animate-pulse mt-1" />
         </div>
@@ -39,12 +39,12 @@ export default function DraftLoading() {
       </div>
 
       {/* Overall Draft Rankings skeleton */}
-      <div className="bg-sleeper-darker rounded-lg overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-800">
+      <div className="panel overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/[0.06]">
           <div className="h-6 w-52 bg-gray-700 rounded animate-pulse" />
           <div className="h-4 w-64 bg-gray-800 rounded animate-pulse mt-1" />
         </div>
-        <div className="divide-y divide-gray-800">
+        <div className="divide-y divide-white/[0.05]">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="p-4">
               <div className="flex items-center gap-4 mb-4">

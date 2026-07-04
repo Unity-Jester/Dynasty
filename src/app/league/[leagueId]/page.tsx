@@ -70,10 +70,14 @@ export default async function DashboardPage({ params }: LeaguePageProps) {
       <div className="space-y-8">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-white">{league.name}</h1>
-          <p className="text-gray-400 mt-1">
+          <p className="text-[11px] font-sans font-semibold uppercase tracking-[0.2em] text-gold-500 mb-2">
+            Dynasty League Hub
+          </p>
+          <h1 className="text-4xl text-white">{league.name}</h1>
+          <p className="text-gray-400 mt-2">
             {league.season} Season &middot; {getStatusText()}
           </p>
+          <div className="keyline mt-4" />
         </div>
 
         {/* Standings - Full Width */}
@@ -98,7 +102,7 @@ export default async function DashboardPage({ params }: LeaguePageProps) {
             {isPreseason ? 'Week 1 Matchups (Preview)' : `Week ${currentWeek} Matchups`}
           </h2>
           {isPreseason ? (
-            <div className="bg-sleeper-darker rounded-lg p-8 text-center">
+            <div className="panel p-8 text-center">
               <p className="text-gray-400">Matchups will be available once the season starts</p>
             </div>
           ) : (

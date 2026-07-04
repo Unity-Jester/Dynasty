@@ -19,10 +19,10 @@ export default function CollapsibleSection({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="bg-sleeper-darker rounded-lg overflow-hidden">
+    <div className="panel overflow-hidden">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-3 border-b border-gray-800 flex items-center justify-between hover:bg-gray-800/30 transition-colors"
+        className="w-full px-4 py-3 border-b border-white/[0.06] flex items-center justify-between hover:bg-gray-800/30 transition-colors"
       >
         <div className="text-left">
           <h2 className="text-lg font-semibold text-white">{title}</h2>
@@ -40,7 +40,7 @@ export default function CollapsibleSection({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-      {isOpen && <div className="divide-y divide-gray-800">{children}</div>}
+      {isOpen && <div className="divide-y divide-white/[0.05]">{children}</div>}
     </div>
   );
 }

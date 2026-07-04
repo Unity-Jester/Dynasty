@@ -64,7 +64,7 @@ export default async function MatchupsPage({ params: routeParams, searchParams }
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white">Matchup Center</h1>
+            <h1 className="text-3xl text-white">Matchup Center</h1>
             <p className="text-sm text-gray-400">
               {activeLeague.season} Season
               {showPreviousSeason && isPreseason && (
@@ -128,7 +128,7 @@ export default async function MatchupsPage({ params: routeParams, searchParams }
               );
             })
           ) : (
-            <div className="text-center py-12 bg-sleeper-darker rounded-lg">
+            <div className="text-center py-12 panel">
               <p className="text-gray-400">No matchups found for Week {selectedWeek}</p>
               {!showPreviousSeason && isPreseason && (
                 <p className="text-sm text-gray-500 mt-2">

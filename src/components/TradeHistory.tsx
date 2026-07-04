@@ -118,7 +118,7 @@ export default function TradeHistory({ seasonTrades, players, currentSeason }: T
       </div>
 
       {isFiltered && filteredSeasonTrades.length === 0 && (
-        <div className="bg-sleeper-darker rounded-lg p-8 text-center">
+        <div className="panel p-8 text-center">
           <p className="text-gray-400">No trades found matching "{searchTerm}"</p>
         </div>
       )}
@@ -129,7 +129,7 @@ export default function TradeHistory({ seasonTrades, players, currentSeason }: T
           const isCurrent = season === currentSeason;
 
           return (
-            <div key={season} className="bg-sleeper-darker rounded-lg overflow-hidden">
+            <div key={season} className="panel overflow-hidden">
               {/* Season Header - Collapsible */}
               <button
                 onClick={() => toggleSeason(season)}

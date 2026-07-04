@@ -1,13 +1,23 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Fraunces, Instrument_Sans } from 'next/font/google';
 import './globals.css';
 import Navigation from '@/components/Navigation';
 
-const inter = Inter({ subsets: ['latin'] });
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  variable: '--font-display',
+  axes: ['opsz'],
+});
+
+const instrumentSans = Instrument_Sans({
+  subsets: ['latin'],
+  variable: '--font-body',
+});
 
 export const metadata: Metadata = {
-  title: 'Sleeper League Hub',
-  description: 'Enhanced fantasy football league hub powered by Sleeper',
+  title: 'Dynasty League Hub',
+  description:
+    'Standings, matchups, trade grades, draft analysis, and league history for any Sleeper dynasty league.',
 };
 
 export default function RootLayout({
@@ -16,9 +26,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <div className="min-h-screen bg-sleeper-dark">
+    <html lang="en" className={`${fraunces.variable} ${instrumentSans.variable}`}>
+      <body className="font-sans">
+        <div className="min-h-screen">
           <Navigation />
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {children}

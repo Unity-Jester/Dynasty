@@ -35,8 +35,8 @@ export default function H2HGrid({ owners, h2hRecords }: H2HGridProps) {
   };
 
   return (
-    <div className="bg-sleeper-darker rounded-lg overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-800">
+    <div className="panel overflow-hidden">
+      <div className="px-4 py-3 border-b border-white/[0.06]">
         <h2 className="text-lg font-semibold text-white">Head-to-Head Rivalries</h2>
         <p className="text-sm text-gray-400">
           All-time records across every season (read across: row team&apos;s record vs column team)

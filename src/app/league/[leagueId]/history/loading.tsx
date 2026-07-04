@@ -8,7 +8,7 @@ export default function HistoryLoading() {
       </div>
 
       {/* Champions skeleton */}
-      <div className="bg-sleeper-darker rounded-lg p-4 space-y-4">
+      <div className="panel p-4 space-y-4">
         <div className="h-6 w-32 bg-gray-700 rounded animate-pulse" />
         {[1, 2, 3].map((i) => (
           <div key={i} className="flex items-center gap-4">
@@ -24,7 +24,7 @@ export default function HistoryLoading() {
       {/* Records skeleton */}
       <div className="grid md:grid-cols-2 gap-6">
         {[1, 2].map((i) => (
-          <div key={i} className="bg-sleeper-darker rounded-lg p-4 space-y-3">
+          <div key={i} className="panel p-4 space-y-3">
             <div className="h-6 w-44 bg-gray-700 rounded animate-pulse" />
             {[1, 2, 3].map((j) => (
               <div key={j} className="h-8 bg-gray-800 rounded animate-pulse" />

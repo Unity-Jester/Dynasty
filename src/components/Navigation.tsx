@@ -32,16 +32,18 @@ export default function Navigation() {
     : [];
 
   return (
-    <nav className="bg-sleeper-darker border-b border-gray-800">
+    <nav className="sticky top-0 z-40 bg-sleeper-dark/80 backdrop-blur-xl border-b border-white/[0.06]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-sleeper-accent rounded-lg flex items-center justify-center">
-                <span className="text-sleeper-dark font-bold text-lg">S</span>
+            <Link href="/" className="group flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-b from-gold-400 to-gold-600 flex items-center justify-center shadow-gold-glow transition-transform duration-300 group-hover:scale-105">
+                <svg viewBox="0 0 24 24" className="w-5 h-5 text-sleeper-dark" fill="currentColor" aria-hidden="true">
+                  <path d="M3 7.5l4.6 4.1L12 4.5l4.4 7.1L21 7.5l-1.7 9.7a1 1 0 01-1 .8H5.7a1 1 0 01-1-.8L3 7.5z" />
+                </svg>
               </div>
-              <span className="text-white font-semibold text-lg hidden sm:block">
-                Sleeper League
+              <span className="font-display text-lg text-white hidden sm:block leading-none">
+                Dynasty <span className="text-gold-gradient">League Hub</span>
               </span>
             </Link>
           </div>
@@ -58,7 +60,7 @@ export default function Navigation() {
                     'px-3 py-2 rounded-md text-sm font-medium transition-colors',
                     isActive
                       ? 'bg-sleeper-accent text-sleeper-dark'
-                      : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                      : 'text-gray-300 hover:bg-white/[0.06] hover:text-white'
                   )}
                 >
                   {item.label}
@@ -67,7 +69,7 @@ export default function Navigation() {
             })}
             <Link
               href="/start"
-              className="ml-2 px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:bg-gray-800 hover:text-white transition-colors"
+              className="ml-2 px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:bg-white/[0.06] hover:text-gold-400 transition-colors"
               title="Switch league"
             >
               {base ? 'Switch League' : 'Find a League'}
@@ -78,7 +80,7 @@ export default function Navigation() {
           <button
             type="button"
             onClick={() => setMenuOpen(open => !open)}
-            className="md:hidden p-2 rounded-md text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+            className="md:hidden p-2 rounded-md text-gray-300 hover:bg-white/[0.06] hover:text-white transition-colors"
             aria-expanded={menuOpen}
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
           >
@@ -97,7 +99,7 @@ export default function Navigation() {
 
       {/* Mobile menu panel */}
       {menuOpen && (
-        <div className="md:hidden border-t border-gray-800 px-4 py-3 space-y-1">
+        <div className="md:hidden border-t border-white/[0.06] bg-sleeper-dark/95 backdrop-blur-xl px-4 py-3 space-y-1">
           {links.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -108,7 +110,7 @@ export default function Navigation() {
                   'block px-3 py-2 rounded-md text-base font-medium transition-colors',
                   isActive
                     ? 'bg-sleeper-accent text-sleeper-dark'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    : 'text-gray-300 hover:bg-white/[0.06] hover:text-white'
                 )}
               >
                 {item.label}
@@ -117,7 +119,7 @@ export default function Navigation() {
           })}
           <Link
             href="/start"
-            className="block px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:bg-gray-800 hover:text-white transition-colors"
+            className="block px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:bg-white/[0.06] hover:text-gold-400 transition-colors"
           >
             {base ? 'Switch League' : 'Find a League'}
           </Link>

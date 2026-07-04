@@ -354,7 +354,7 @@ export default async function DraftPage({ params }: LeaguePageProps) {
     return (
       <div className="space-y-8">
         <div>
-          <h1 className="text-2xl font-bold text-white">Draft Center</h1>
+          <h1 className="text-3xl text-white">Draft Center</h1>
           <p className="text-gray-400 mt-1">
             {draftData.length} draft{draftData.length !== 1 ? 's' : ''} analyzed
           </p>
@@ -362,8 +362,8 @@ export default async function DraftPage({ params }: LeaguePageProps) {
 
         {/* Draft Board - Most Recent */}
         {mostRecentDraft && (
-          <div className="bg-sleeper-darker rounded-lg overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-800">
+          <div className="panel overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/[0.06]">
               <h2 className="text-lg font-semibold text-white">
                 {mostRecentDraft.season} Draft Board
               </h2>
@@ -386,14 +386,14 @@ export default async function DraftPage({ params }: LeaguePageProps) {
 
         {/* Overall Draft Rankings */}
         {overallStats.length > 0 && (
-          <div className="bg-sleeper-darker rounded-lg overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-800">
+          <div className="panel overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/[0.06]">
               <h2 className="text-lg font-semibold text-white">Overall Draft Rankings</h2>
               <p className="text-sm text-gray-400">
                 Combined performance across all {draftData.length} draft{draftData.length !== 1 ? 's' : ''}
               </p>
             </div>
-            <div className="divide-y divide-gray-800">
+            <div className="divide-y divide-white/[0.05]">
               {overallStats.map((manager, idx) => (
                 <div key={manager.ownerId} className="p-4">
                   <div className="flex items-center gap-4 mb-4">
@@ -639,8 +639,8 @@ export default async function DraftPage({ params }: LeaguePageProps) {
 
         {/* Top 30 Picks Across All Years */}
         {draftData.length > 0 && (
-          <div className="bg-sleeper-darker rounded-lg overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-800">
+          <div className="panel overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/[0.06]">
               <h2 className="text-lg font-semibold text-white">
                 Top 30 Draft Picks (All-Time)
               </h2>
@@ -648,7 +648,7 @@ export default async function DraftPage({ params }: LeaguePageProps) {
                 Best picks across all {draftData.length} draft{draftData.length !== 1 ? 's' : ''} by value gained
               </p>
             </div>
-            <div className="divide-y divide-gray-800">
+            <div className="divide-y divide-white/[0.05]">
               {getAllPicksWithSeason(draftData)
                 .slice(0, 30)
                 .map((pick, idx) => {

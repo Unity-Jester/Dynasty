@@ -26,8 +26,8 @@ export default function LuckIndex({ rows, rosters, users }: LuckIndexProps) {
     luck > 0.5 ? 'text-sleeper-green' : luck < -0.5 ? 'text-sleeper-red' : 'text-gray-300';
 
   return (
-    <div className="bg-sleeper-darker rounded-lg overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-800">
+    <div className="panel overflow-hidden">
+      <div className="px-4 py-3 border-b border-white/[0.06]">
         <h2 className="text-lg font-semibold text-white">Luck Index</h2>
         <p className="text-sm text-gray-400">
           Expected wins if every team played every other team each week (&ldquo;all-play&rdquo;),

@@ -29,8 +29,8 @@ export default function Standings({ rosters, users }: StandingsProps) {
   }, 0) / totalTeams;
 
   return (
-    <div className="bg-sleeper-darker rounded-lg overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+    <div className="panel overflow-hidden">
+      <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
         <h2 className="text-lg font-semibold text-white">Standings</h2>
         <div className="text-xs text-gray-500">
           Avg PF: {avgPoints.toFixed(1)} | Avg MaxPF: {avgMaxPF.toFixed(1)}
@@ -69,7 +69,7 @@ export default function Standings({ rosters, users }: StandingsProps) {
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800">
+          <tbody className="divide-y divide-white/[0.05]">
             {sortedRosters.map((roster, index) => {
               const user = getUserByOwnerId(users, roster.owner_id);
               const teamName = getTeamName(user, roster.roster_id);

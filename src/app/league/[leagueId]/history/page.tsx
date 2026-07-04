@@ -113,15 +113,15 @@ export default async function HistoryPage({ params }: LeaguePageProps) {
     return (
       <div className="space-y-8">
         <div>
-          <h1 className="text-2xl font-bold text-white">League History</h1>
+          <h1 className="text-3xl text-white">League History</h1>
           <p className="text-gray-400 mt-1">
             {seasonsData.length} Season{seasonsData.length !== 1 ? 's' : ''} of Glory
           </p>
         </div>
 
         {/* Championship History */}
-        <div className="bg-sleeper-darker rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-800">
+        <div className="panel overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/[0.06]">
             <h2 className="text-lg font-semibold text-white">Champions</h2>
           </div>
           <div className="p-4">
@@ -173,8 +173,8 @@ export default async function HistoryPage({ params }: LeaguePageProps) {
         {/* All-Time Records */}
         <div className="grid md:grid-cols-2 gap-6">
           {/* Most Points (Season) */}
-          <div className="bg-sleeper-darker rounded-lg overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-800">
+          <div className="panel overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/[0.06]">
               <h2 className="text-lg font-semibold text-white">Most Points (Season)</h2>
             </div>
             <div className="p-4 space-y-2">
@@ -193,8 +193,8 @@ export default async function HistoryPage({ params }: LeaguePageProps) {
           </div>
 
           {/* Most Wins (Season) */}
-          <div className="bg-sleeper-darker rounded-lg overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-800">
+          <div className="panel overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/[0.06]">
               <h2 className="text-lg font-semibold text-white">Most Wins (Season)</h2>
             </div>
             <div className="p-4 space-y-2">
@@ -217,11 +217,11 @@ export default async function HistoryPage({ params }: LeaguePageProps) {
         <H2HGrid owners={owners} h2hRecords={h2hRecords} />
 
         {/* Season-by-Season Archive */}
-        <div className="bg-sleeper-darker rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-800">
+        <div className="panel overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/[0.06]">
             <h2 className="text-lg font-semibold text-white">Season Archive</h2>
           </div>
-          <div className="divide-y divide-gray-800">
+          <div className="divide-y divide-white/[0.05]">
             {seasonsData.map((season) => {
               const sortedRosters = [...season.rosters].sort((a, b) => {
                 const winsDiff = (b.settings.wins || 0) - (a.settings.wins || 0);

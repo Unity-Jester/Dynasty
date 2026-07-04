@@ -3,20 +3,53 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 26, 26, 46;
-  --background-end-rgb: 22, 22, 42;
+  --ink: #0e0d11;
+  --panel: #16141a;
+  --gold: #d4b26a;
+  --gold-soft: rgba(212, 178, 106, 0.14);
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  color: #e9e7e2;
+  background-color: var(--ink);
+  /* Layered atmosphere: a faint champagne glow bleeding from the top,
+     a cool counter-glow low left, over deep warm ink. */
+  background-image:
+    radial-gradient(1200px 500px at 50% -10%, rgba(212, 178, 106, 0.07), transparent 60%),
+    radial-gradient(900px 600px at -10% 110%, rgba(96, 89, 120, 0.08), transparent 55%);
+  background-attachment: fixed;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Film grain over everything, cheap and subtle */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Editorial display face for page and section titles */
+h1,
+h2 {
+  font-family: var(--font-display), Georgia, serif;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+
+/* Stats read better with lining, equal-width figures */
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--gold);
+  color: var(--ink);
 }
 
 /* Custom scrollbar */
@@ -26,19 +59,43 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #1a1a2e;
+  background: var(--ink);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3a3a5e;
+  background: #403d37;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4a4a6e;
+  background: #55524a;
 }
 
-/* Smooth scrolling */
 html {
   scroll-behavior: smooth;
+}
+
+@layer components {
+  /* The house surface: every card and section sits on this */
+  .panel {
+    @apply bg-sleeper-darker rounded-xl border border-white/[0.06] shadow-panel;
+  }
+
+  .panel-hover {
+    @apply transition-all duration-300 hover:border-gold-500/25 hover:-translate-y-0.5;
+  }
+
+  /* Thin gold keyline used under page headers */
+  .keyline {
+    @apply h-px w-16 bg-gradient-to-r from-gold-500 via-gold-500/40 to-transparent;
+  }
+}
+
+@layer utilities {
+  .text-gold-gradient {
+    background: linear-gradient(120deg, #eddcae 0%, #d4b26a 45%, #b89347 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
 }

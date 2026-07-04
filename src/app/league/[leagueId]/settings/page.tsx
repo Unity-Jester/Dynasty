@@ -21,13 +21,13 @@ export default async function SettingsPage({ params }: LeaguePageProps) {
     return (
       <div className="space-y-8">
         <div>
-          <h1 className="text-2xl font-bold text-white">League Settings</h1>
+          <h1 className="text-3xl text-white">League Settings</h1>
           <p className="text-gray-400 mt-1">{league.name}</p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* General Settings */}
-          <div className="bg-sleeper-darker rounded-lg p-6">
+          <div className="panel p-6">
             <h2 className="text-lg font-semibold text-white mb-4">General</h2>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
@@ -56,7 +56,7 @@ export default async function SettingsPage({ params }: LeaguePageProps) {
           </div>
 
           {/* Schedule Settings */}
-          <div className="bg-sleeper-darker rounded-lg p-6">
+          <div className="panel p-6">
             <h2 className="text-lg font-semibold text-white mb-4">Schedule</h2>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
@@ -81,7 +81,7 @@ export default async function SettingsPage({ params }: LeaguePageProps) {
           </div>
 
           {/* Waiver Settings */}
-          <div className="bg-sleeper-darker rounded-lg p-6">
+          <div className="panel p-6">
             <h2 className="text-lg font-semibold text-white mb-4">Waivers</h2>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
@@ -108,7 +108,7 @@ export default async function SettingsPage({ params }: LeaguePageProps) {
           </div>
 
           {/* Trade Settings */}
-          <div className="bg-sleeper-darker rounded-lg p-6">
+          <div className="panel p-6">
             <h2 className="text-lg font-semibold text-white mb-4">Trades</h2>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
@@ -128,7 +128,7 @@ export default async function SettingsPage({ params }: LeaguePageProps) {
         </div>
 
         {/* Roster Positions */}
-        <div className="bg-sleeper-darker rounded-lg p-6">
+        <div className="panel p-6">
           <h2 className="text-lg font-semibold text-white mb-4">Roster Positions</h2>
           <div className="flex flex-wrap gap-2">
             {league.roster_positions.map((pos, idx) => (
@@ -174,7 +174,7 @@ export default async function SettingsPage({ params }: LeaguePageProps) {
         </div>
 
         {/* Scoring Settings */}
-        <div className="bg-sleeper-darker rounded-lg p-6">
+        <div className="panel p-6">
           <h2 className="text-lg font-semibold text-white mb-4">Scoring</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
             {Object.entries(league.scoring_settings)

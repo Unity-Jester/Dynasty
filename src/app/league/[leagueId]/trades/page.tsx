@@ -111,7 +111,7 @@ export default async function TradesPage({ params }: LeaguePageProps) {
     return (
       <div className="space-y-8">
         <div>
-          <h1 className="text-2xl font-bold text-white">Trade Center</h1>
+          <h1 className="text-3xl text-white">Trade Center</h1>
           <p className="text-gray-400 mt-1">{league.name} &middot; {league.season} Season</p>
           {historicalData.dates.length > 0 ? (
             <p className="text-xs text-gray-500 mt-1">

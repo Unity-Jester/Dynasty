@@ -52,7 +52,7 @@ export default async function PowerRankings({ rosters, users, players }: PowerRa
 
   if (!hasFCData && !hasDPData) {
     return (
-      <div className="bg-sleeper-darker rounded-lg p-6 text-center">
+      <div className="panel p-6 text-center">
         <h2 className="text-lg font-semibold text-white mb-2">Power Rankings</h2>
         <p className="text-gray-400">Unable to load power rankings data</p>
       </div>
@@ -74,8 +74,8 @@ export default async function PowerRankings({ rosters, users, players }: PowerRa
     linkUrl: string;
     linkText: string;
   }) => (
-    <div className="bg-sleeper-darker rounded-lg overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-800">
+    <div className="panel overflow-hidden">
+      <div className="px-4 py-3 border-b border-white/[0.06]">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-white">{title}</h3>
@@ -93,7 +93,7 @@ export default async function PowerRankings({ rosters, users, players }: PowerRa
       </div>
 
       {hasData ? (
-        <div className="divide-y divide-gray-800">
+        <div className="divide-y divide-white/[0.05]">
           {rankings.map((team) => {
             const roster = rosters.find(r => r.roster_id === team.rosterId);
             const user = roster ? getUserByOwnerId(users, roster.owner_id) : null;

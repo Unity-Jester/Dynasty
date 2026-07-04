@@ -8,7 +8,7 @@ export default function TradesLoading() {
       </div>
 
       {/* Trade Analyzer skeleton */}
-      <div className="bg-sleeper-darker rounded-lg p-6">
+      <div className="panel p-6">
         <div className="h-6 w-40 bg-gray-700 rounded animate-pulse mb-4" />
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-3">
@@ -28,7 +28,7 @@ export default function TradesLoading() {
       <div className="space-y-4">
         <div className="h-6 w-48 bg-gray-700 rounded animate-pulse" />
         {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-sleeper-darker rounded-lg p-4 flex items-center gap-4">
+          <div key={i} className="panel p-4 flex items-center gap-4">
             <div className="h-8 w-8 bg-gray-700 rounded animate-pulse" />
             <div className="h-12 w-12 bg-gray-700 rounded-full animate-pulse" />
             <div className="flex-1 space-y-2">

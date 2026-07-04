@@ -17,8 +17,8 @@ export default function Roster({ roster, players, rosterPositions, teamName }: R
   const starterSlots = rosterPositions.filter(pos => pos !== 'BN');
 
   return (
-    <div className="bg-sleeper-darker rounded-lg overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-800">
+    <div className="panel overflow-hidden">
+      <div className="px-4 py-3 border-b border-white/[0.06]">
         <h2 className="text-lg font-semibold text-white">{teamName}</h2>
       </div>
 
