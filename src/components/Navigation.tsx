@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { path: '', label: 'Dashboard' },
   { path: '/matchups', label: 'Matchups' },
+  { path: '/odds', label: 'Odds' },
   { path: '/teams', label: 'Teams' },
   { path: '/draft', label: 'Draft' },
   { path: '/trades', label: 'Trades' },
