@@ -1,0 +1,112 @@
+
+# Ouroboros Seed — generated in plugin-fallback mode (MCP backend unavailable)
+# Source: 20-question Socratic interview, 2026-07-05
+
+goal: >
+  Evolve the AGS_Sleeper_Site analytics hub (Next.js 14/TypeScript, ~12k LOC)
+  into "Dynasty" — a dynasty-only fantasy football league HOSTING platform —
+  such that the developer's own 12-team Superflex PPR league migrates off
+  Sleeper via one-time import and runs the full 2026 NFL season natively
+  (lineups, waivers, trades, scoring, standings, playoffs).
+
+constraints:
+  - Solo developer + Claude, near full-time (~20+ hrs/week); 2026 season starts ~September (9 weeks)
+  - Infra + data budget ~$0-25/month: free tiers plus community NFL data (nflverse, Sleeper public endpoints); no licensed feeds
+  - Build on the existing codebase: Next.js 14+ App Router, TypeScript, Tailwind; reuse analytics modules (trade analyzer, valuations, history, luck index)
+  - Dynasty-only product scope; no redraft-specific features
+  - MFL-grade league configurability is the differentiator: arbitrary scoring rules, roster construction, FAAB and priority waivers, all league-configurable
+  - Dynasty core mechanics required: future draft pick trading (1-3 years out), taxi squad, IR slots, rookie draft support
+  - Mobile via installable PWA with push notifications for 2026; native app deferred to 2027
+  - First native draft event is the spring 2027 rookie draft; slow and live draft rooms both planned but have runway past the season start
+  - One-time Sleeper league migration (users, rosters, picks, multi-season history); no continuous two-way sync
+  - Target git remote: https://github.com/Unity-Jester/Dynasty.git
+  - Passion project: no monetization requirements in MVP
+
+acceptance_criteria:
+  - League members can create accounts and claim teams via commissioner invite links
+  - Commissioner can create a league with MFL-grade configurable scoring and roster rules, expressed at minimum for 12-team Superflex PPR
+  - One-time Sleeper import brings in users, rosters, future draft picks, and league history for a real league
+  - Owners can set weekly lineups against configurable roster slots (including Superflex, taxi, IR) with legality validation and lock times
+  - Trades support players AND future rookie picks (1-3 years out), with commissioner review settings
+  - Waivers process on schedule in both FAAB and priority modes, league-configurable
+  - Weekly scoring computes from community NFL data with scores visible during games (minutes-level lag acceptable) and finalized weekly standings
+  - Playoff brackets seed and advance per league config through a championship
+  - The app is an installable PWA with push notifications for lineup deadlines, waiver results, and trades
+  - The developer's league completes the 2026 season on the platform; occasional Sleeper cross-checks acceptable (engine proven, hybrid ok)
+
+ontology_schema:
+  name: DynastyLeagueEngine
+  description: Domain model for a dynasty fantasy football hosting platform
+  fields:
+    - name: user
+      type: object
+      description: Authenticated account; may own teams in multiple leagues
+    - name: league
+      type: object
+      description: A dynasty league with settings, seasons, and member teams
+    - name: league_settings
+      type: object
+      description: MFL-grade config — scoring rules, roster slots, waiver mode (FAAB/priority), trade rules, playoff format
+    - name: team
+      type: object
+      description: A franchise within a league, owned by a user, persistent across seasons
+    - name: player
+      type: object
+      description: NFL player synced from community data sources
+    - name: roster_slot
+      type: object
+      description: Assignment of a player to a team (active/bench/taxi/IR) in a season week
+    - name: draft_pick_asset
+      type: object
+      description: Tradeable future rookie pick (year, round, original owner, current owner)
+    - name: transaction
+      type: object
+      description: Trade, waiver claim, free-agent add/drop, or commissioner action with lifecycle state
+    - name: matchup
+      type: object
+      description: Weekly head-to-head pairing with computed scores
+    - name: scoring_event
+      type: object
+      description: Stat line applied to league scoring rules producing fantasy points
+    - name: draft
+      type: object
+      description: Startup or rookie draft (slow or live) with ordered picks and pick trading
+    - name: season
+      type: object
+      description: A league-year including schedule, standings, playoffs, and champion
+
+evaluation_principles:
+  - name: correctness_of_engine
+    description: Scoring, waiver processing, and roster legality match league rules exactly; money-path bugs are season-ruining
+    weight: 0.35
+  - name: config_flexibility
+    description: League rules are data, not code — new scoring/roster rules require no code changes
+    weight: 0.2
+  - name: ship_by_september
+    description: Scope decisions favor the 2026 season deadline; drafts and native apps have runway, the season does not
+    weight: 0.2
+  - name: reuse_existing_code
+    description: Leverage the proven analytics modules and UI rather than rewriting
+    weight: 0.15
+  - name: operational_simplicity
+    description: Runs on free/cheap managed services a solo dev can operate during the season
+    weight: 0.1
+
+exit_conditions:
+  - name: mvp_live
+    description: League migrated and 2026 season running natively
+    criteria: All acceptance criteria demonstrably working with the real league before NFL week 1
+  - name: season_proven
+    description: Ultimate success checkpoint
+    criteria: January 2027 — full season completed on-platform with engine trusted
+  - name: pivot_gate
+    description: Deadline safety valve
+    criteria: If native scoring is not trustworthy by mid-August 2026, fall back to Sleeper-synced hybrid for launch rather than risk the league year
+
+metadata:
+  version: "1"
+  created: "2026-07-05"
+  ambiguity_score: 0.1
+  interview: 20 questions, conversation-context fallback (MCP unavailable)
+  source_repo: https://github.com/Unity-Jester/AGS_Sleeper_Site
+  target_repo: https://github.com/Unity-Jester/Dynasty.git
