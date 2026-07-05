@@ -434,6 +434,16 @@ export interface TradeValueSwing {
 // Keyed by transaction_id
 export type TradeValueMap = Record<string, TradeValueSwing[]>;
 
+export interface TransactionValueChange {
+  rosterId: number;
+  addedValue: number;
+  droppedValue: number;
+  netValue: number;
+}
+
+// Keyed by transaction_id
+export type TransactionValueChangeMap = Record<string, TransactionValueChange[]>;
+
 export interface TeamReportCard {
   rosterId: number;
   ownerId: string;

@@ -7,8 +7,14 @@ import {
   getNFLState,
   getAllPlayers,
   getSeasonWeeklyMatchups,
+  getAllHistoricalDrafts,
   pairMatchups,
 } from '@/lib/sleeper';
+import { fetchFantasyCalcValues } from '@/lib/rankings';
+import { generateAllReportCards } from '@/lib/tradeAnalysis';
+import { fetchHistoricalValues, buildPlayerNameMapping } from '@/lib/historicalValues';
+import { buildTradeValueMap, buildTransactionValueChangeMap } from '@/lib/transactionValues';
+import { FantasyCalcSettings, SleeperTransaction } from '@/lib/types';
 import { calculateLuckIndex, calculateWeeklyAwards } from '@/lib/seasonStats';
 import ErrorState from '@/components/ErrorState';
 import Standings from '@/components/Standings';
@@ -19,6 +25,26 @@ import LuckIndex from '@/components/LuckIndex';
 import WeeklyAwards from '@/components/WeeklyAwards';
 
 export const revalidate = 60; // Revalidate every 60 seconds
+
+function deriveLeagueSettings(
+  rosterPositions: string[],
+  scoringSettings: Record<string, number>,
+  totalRosters: number
+): FantasyCalcSettings {
+  const qbCount = rosterPositions.filter(
+    pos => pos === 'QB' || pos === 'SUPER_FLEX'
+  ).length;
+  const numQbs: 1 | 2 = qbCount >= 2 ? 2 : 1;
+
+  const recValue = scoringSettings?.rec ?? 1;
+  const ppr: 0 | 0.5 | 1 = recValue === 0 ? 0 : recValue === 0.5 ? 0.5 : 1;
+
+  return {
+    numQbs,
+    ppr,
+    numTeams: totalRosters || 12,
+  };
+}
 
 interface LeaguePageProps {
   params: { leagueId: string };
@@ -49,12 +75,14 @@ export default async function DashboardPage({ params }: LeaguePageProps) {
     };
 
     const regularSeasonWeeks = Math.max(1, (league.settings.playoff_week_start || 15) - 1);
-    const [matchups, transactions, weeklyMatchups] = await Promise.all([
+    const [matchups, transactions, weeklyMatchups, draftMap, historicalData] = await Promise.all([
       getLeagueMatchups(leagueId, currentWeek),
       getAllSeasonTransactions(leagueId, currentWeek),
       isPreseason
         ? Promise.resolve([] as Awaited<ReturnType<typeof getSeasonWeeklyMatchups>>)
         : getSeasonWeeklyMatchups(leagueId, regularSeasonWeeks),
+      getAllHistoricalDrafts(leagueId),
+      fetchHistoricalValues(),
     ]);
 
     const matchupPairs = pairMatchups(matchups, rosters, users);
@@ -65,6 +93,30 @@ export default async function DashboardPage({ params }: LeaguePageProps) {
     const recentTransactions = transactions
       .sort((a, b) => b.created - a.created)
       .slice(0, 10);
+
+    const settings = deriveLeagueSettings(
+      league.roster_positions || [],
+      league.scoring_settings || {},
+      league.total_rosters
+    );
+    const { playerValues, pickValues } = await fetchFantasyCalcValues(settings);
+    const playerValuesObj = Object.fromEntries(playerValues);
+    const pickValuesObj = Object.fromEntries(pickValues);
+    const playerMapping = buildPlayerNameMapping(players, historicalData.playerColumns);
+    const seasonTrades: SleeperTransaction[] = transactions.filter(t => t.type === 'trade');
+    const reportCards = generateAllReportCards(
+      seasonTrades,
+      rosters,
+      users,
+      players,
+      playerValuesObj,
+      pickValuesObj,
+      draftMap,
+      historicalData,
+      playerMapping
+    );
+    const tradeValues = buildTradeValueMap(reportCards);
+    const transactionValueChanges = buildTransactionValueChangeMap(recentTransactions, playerValuesObj);
 
     return (
       <div className="space-y-8">
@@ -130,6 +182,8 @@ export default async function DashboardPage({ params }: LeaguePageProps) {
                   rosters={rosters}
                   users={users}
                   players={players}
+                  tradeValues={tradeValues[transaction.transaction_id]}
+                  valueChanges={transactionValueChanges[transaction.transaction_id]}
                 />
               ))}
             </div>

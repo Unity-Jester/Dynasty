@@ -1,4 +1,11 @@
-import { SleeperTransaction, SleeperRoster, SleeperUser, SleeperPlayersMap, TradeValueSwing } from '@/lib/types';
+import {
+  SleeperTransaction,
+  SleeperRoster,
+  SleeperUser,
+  SleeperPlayersMap,
+  TradeValueSwing,
+  TransactionValueChange,
+} from '@/lib/types';
 import { getUserByOwnerId, getPlayerAvatarUrl, getUserAvatarUrl } from '@/lib/sleeper';
 import { timeAgo, cn, getTeamName as teamDisplayName } from '@/lib/utils';
 import Image from 'next/image';
@@ -9,11 +16,16 @@ interface TransactionCardProps {
   users: SleeperUser[];
   players: SleeperPlayersMap;
   tradeValues?: TradeValueSwing[];
+  valueChanges?: TransactionValueChange[];
 }
 
 function formatNet(value: number): string {
   const abs = Math.abs(Math.round(value)).toLocaleString();
   return value > 0 ? `+${abs}` : value < 0 ? `-${abs}` : '0';
+}
+
+function formatValue(value: number): string {
+  return Math.round(value).toLocaleString();
 }
 
 // Compact value-swing chip shown next to each side of a trade
@@ -34,7 +46,32 @@ function ValueSwingChip({ swing }: { swing: TradeValueSwing }) {
   );
 }
 
-export default function TransactionCard({ transaction, rosters, users, players, tradeValues }: TransactionCardProps) {
+function ValueChangeChip({ change }: { change: TransactionValueChange }) {
+  const color =
+    change.netValue > 0
+      ? 'text-sleeper-green bg-sleeper-green/10'
+      : change.netValue < 0
+        ? 'text-sleeper-red bg-sleeper-red/10'
+        : 'text-gray-400 bg-white/[0.06]';
+
+  return (
+    <span
+      className={`ml-auto shrink-0 px-2 py-0.5 rounded text-xs font-medium tabular-nums ${color}`}
+      title={`Value change - added: ${formatValue(change.addedValue)} · dropped: ${formatValue(change.droppedValue)}`}
+    >
+      {formatNet(change.netValue)}
+    </span>
+  );
+}
+
+export default function TransactionCard({
+  transaction,
+  rosters,
+  users,
+  players,
+  tradeValues,
+  valueChanges,
+}: TransactionCardProps) {
   const getTeamName = (rosterId: number) => {
     const roster = rosters.find(r => r.roster_id === rosterId);
     if (!roster) return `Team ${rosterId}`;
@@ -140,6 +177,7 @@ export default function TransactionCard({ transaction, rosters, users, players, 
   const adds = Object.entries(transaction.adds || {});
   const drops = Object.entries(transaction.drops || {});
   const rosterId = transaction.roster_ids[0];
+  const valueChange = valueChanges?.find(v => v.rosterId === rosterId);
 
   return (
     <div className="panel p-4">
@@ -171,6 +209,7 @@ export default function TransactionCard({ transaction, rosters, users, players, 
         <span className="text-sm font-medium text-white">
           {getTeamName(rosterId)}
         </span>
+        {valueChange && <ValueChangeChip change={valueChange} />}
       </div>
 
       <div className="ml-8 space-y-1">
