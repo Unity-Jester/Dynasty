@@ -202,23 +202,42 @@ export default async function VaultPage({ params }: LeaguePageProps) {
     ].filter(ts => ts > 0);
     const inceptionTs = inceptionCandidates.length > 0 ? Math.min(...inceptionCandidates) : 0;
     const franchiseSampleDates = sampleDates(historicalData.dates, inceptionTs, 48);
+    const latestSheetValues = historicalData.values.get(historicalData.dates[0]);
     const franchises = rosters
-      .map(roster => ({
-        rosterId: roster.roster_id,
-        name: names.get(roster.roster_id) || `Team ${roster.roster_id}`,
-        series: reconstructFranchiseSeries(
+      .map(roster => {
+        const series = reconstructFranchiseSeries(
           roster.players || [],
           events.get(roster.roster_id) || [],
           historicalData,
           playerMapping,
           franchiseSampleDates
-        ),
-      }))
-      .map(f => {
-        let peak = f.series[0] || { date: '', value: 0 };
-        for (const p of f.series) if (p.value > peak.value) peak = p;
-        const current = f.series[f.series.length - 1]?.value || 0;
-        return { ...f, peak, current };
+        );
+        let peak = series[0] || { date: '', value: 0 };
+        for (const p of series) if (p.value > peak.value) peak = p;
+
+        // Current value gets the same treatment as trade chips: real sheet
+        // value for tracked players plus rescaled FantasyCalc estimates for
+        // the rest. Without this, rookie-heavy rosters rank artificially
+        // low here while ranking high on the Teams page.
+        const trackedNow = series[series.length - 1]?.value || 0;
+        let estimate = 0;
+        for (const playerId of roster.players || []) {
+          const col = playerMapping.get(playerId);
+          const tracked = col && latestSheetValues?.get(col);
+          if (!tracked) {
+            const fcVal = fallback.playerValues.get(playerId);
+            if (fcVal) estimate += fcVal * fallback.scale;
+          }
+        }
+
+        return {
+          rosterId: roster.roster_id,
+          name: names.get(roster.roster_id) || `Team ${roster.roster_id}`,
+          series,
+          peak,
+          current: Math.round(trackedNow + estimate),
+          currentIsEstimated: estimate > 0,
+        };
       })
       .sort((a, b) => b.current - a.current);
 
@@ -306,7 +325,9 @@ export default async function VaultPage({ params }: LeaguePageProps) {
           <div className="px-4 py-3 border-b border-white/[0.06]">
             <h2 className="text-lg font-semibold text-white">Franchise Timelines</h2>
             <p className="text-sm text-gray-400">
-              Roster value reconstructed from every draft pick, trade, and waiver move
+              Roster value reconstructed from every draft pick, trade, and waiver move.
+              Lines chart sheet-tracked value; current values (&asymp;) also estimate
+              untracked players, matching how the Teams page ranks rosters.
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 divide-y sm:divide-y-0 divide-white/[0.05]">
@@ -314,7 +335,13 @@ export default async function VaultPage({ params }: LeaguePageProps) {
               <div key={f.rosterId} className="p-4">
                 <div className="flex items-baseline justify-between gap-2 mb-1">
                   <p className="text-sm font-medium text-white truncate">{truncateName(f.name, 20)}</p>
-                  <p className="text-sm text-gold-400 tabular-nums">{abbreviateNumber(f.current)}</p>
+                  <p
+                    className="text-sm text-gold-400 tabular-nums"
+                    title={f.currentIsEstimated ? 'Includes estimates for players the value sheet does not track' : undefined}
+                  >
+                    {f.currentIsEstimated ? '\u2248' : ''}
+                    {abbreviateNumber(f.current)}
+                  </p>
                 </div>
                 <FranchiseSparkline points={f.series} />
                 <p className="text-[11px] text-gray-500 mt-1">
