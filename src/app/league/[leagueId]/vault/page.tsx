@@ -240,9 +240,21 @@ export default async function VaultPage({ params }: LeaguePageProps) {
             {trade.sides.map(s => names.get(s.rosterId) || `Team ${s.rosterId}`).join(' vs ')}
             <span className="text-gray-500 ml-2 text-xs">{formatDate(trade.date)}</span>
           </p>
-          <p className="text-xs text-gray-400 mb-2 truncate" title={trade.sides.map(s => s.assetLabels.join(', ')).join('  /  ')}>
-            {trade.sides.map(s => s.assetLabels.join(', ') || 'nothing').join(' \u2194 ')}
-          </p>
+          <div className="space-y-1 mb-2">
+            {trade.sides.map((s, i) => (
+              <p key={s.rosterId} className="text-xs text-gray-400 truncate flex items-baseline gap-1.5" title={s.assetLabels.join(', ')}>
+                <span
+                  className="w-1.5 h-1.5 rounded-full inline-block shrink-0 self-center"
+                  style={{ backgroundColor: SIDE_COLORS[i % SIDE_COLORS.length] }}
+                />
+                <span className="text-gray-300 tabular-nums shrink-0">
+                  {s.todayIsEstimated ? '\u2248' : ''}
+                  {abbreviateNumber(s.todayValue)}
+                </span>
+                <span className="truncate">{s.assetLabels.join(', ') || 'nothing'}</span>
+              </p>
+            ))}
+          </div>
           <TradeAgingChart trade={trade} names={names} />
           <p className="text-xs text-gray-400 mt-2">{line(trade)}</p>
         </div>

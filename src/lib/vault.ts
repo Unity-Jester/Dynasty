@@ -382,23 +382,33 @@ export interface VaultSuperlatives {
   photoFinish: VaultTrade | null; // tightest gap today among aged trades
 }
 
+// Plaques demand clean data: every asset tracked, and both sides still
+// carrying real value. Without the floor, the Photo Finish's minimum-gap
+// search is structurally attracted to dead trades where both sides
+// decayed to zero ("separated by just 0").
+const PLAQUE_VALUE_FLOOR = 1000;
+
+function plaqueEligible(t: VaultTrade): boolean {
+  if (t.leaderRosterId === null) return false;
+  return t.sides.every(s => {
+    const finalValue = s.points[s.points.length - 1]?.value || 0;
+    return s.totalAssets > 0 && s.trackedAssets === s.totalAssets && finalValue >= PLAQUE_VALUE_FLOOR;
+  });
+}
+
 export function findSuperlatives(
   trades: VaultTrade[],
   now: number = Date.now(),
   minAgeDays: number = 180
 ): VaultSuperlatives {
-  const chartable = trades.filter(
-    t =>
-      t.leaderRosterId !== null &&
-      t.sides.every(s => s.totalAssets > 0 && s.trackedAssets / s.totalAssets >= 0.5)
-  );
+  const eligible = trades.filter(plaqueEligible);
 
   let heist: VaultTrade | null = null;
-  for (const t of chartable) {
+  for (const t of eligible) {
     if (!heist || Math.abs(t.swing) > Math.abs(heist.swing)) heist = t;
   }
 
-  const aged = chartable.filter(t => now - t.date >= minAgeDays * 24 * 60 * 60 * 1000);
+  const aged = eligible.filter(t => now - t.date >= minAgeDays * 24 * 60 * 60 * 1000);
   let photoFinish: VaultTrade | null = null;
   for (const t of aged) {
     if (!photoFinish || Math.abs(t.gapNow) < Math.abs(photoFinish.gapNow)) photoFinish = t;

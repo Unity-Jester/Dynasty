@@ -204,6 +204,12 @@ describe('findSuperlatives', () => {
     const sup = findSuperlatives(trades, new Date('2025-07-01').getTime());
     expect(sup.heist?.tradeId).toBe('heist');
     expect(sup.photoFinish?.tradeId).toBe('even');
+
+    // A dead trade (untracked assets, zero-value sides) can't win a plaque
+    const deadTrade = makeTrade({ transaction_id: 'dead', adds: { ghost1: 1, ghost2: 2 } });
+    const withDead = buildVaultTrades([heistTrade, evenTrade2, deadTrade], null, makeSheet(), mapping);
+    const sup2 = findSuperlatives(withDead, new Date('2025-07-01').getTime());
+    expect(sup2.photoFinish?.tradeId).toBe('even'); // not the 0-vs-0 dead trade
   });
 });
 
