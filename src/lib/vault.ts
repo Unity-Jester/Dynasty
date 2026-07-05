@@ -21,6 +21,38 @@ export interface TradeSideSeries {
   trackedAssets: number;
   totalAssets: number;
   assetLabels: string[]; // human-readable haul, e.g. "2026 1st \u2192 Rookie Gem"
+  todayValue: number; // last real point plus scaled estimates for untracked assets
+  todayIsEstimated: boolean; // true when untracked assets contributed estimates
+}
+
+// Today's-value fallback for assets the sheet doesn't track, rescaled
+// onto the sheet's value scale.
+export interface FallbackValues {
+  playerValues: Map<string, number>;
+  pickValues: Map<string, number>;
+  scale: number;
+}
+
+// Calibrate the FantasyCalc -> sheet scale factor from players present in
+// both sources (median ratio; ~1.8-1.9 in practice, but self-adjusting).
+export function estimateScaleFactor(
+  sheetLatest: Map<string, number> | undefined,
+  fcPlayerValues: Map<string, number>,
+  playerMapping: Map<string, string>,
+  fallback: number = 1.8
+): number {
+  if (!sheetLatest) return fallback;
+  const ratios: number[] = [];
+  for (const [playerId, col] of playerMapping) {
+    const sheetVal = sheetLatest.get(col);
+    const fcVal = fcPlayerValues.get(playerId);
+    if (sheetVal && fcVal && sheetVal > 500 && fcVal > 500) {
+      ratios.push(sheetVal / fcVal);
+    }
+  }
+  if (ratios.length < 20) return fallback;
+  ratios.sort((a, b) => a - b);
+  return ratios[Math.floor(ratios.length / 2)];
 }
 
 export interface VaultTrade {
@@ -138,6 +170,19 @@ function assetLabel(
   return base;
 }
 
+function fallbackAssetValue(asset: Asset, fallback: FallbackValues): number | null {
+  if (asset.kind === 'player') {
+    const v = fallback.playerValues.get(asset.playerId);
+    return v !== undefined ? v * fallback.scale : null;
+  }
+  if (asset.becamePlayerId) {
+    const v = fallback.playerValues.get(asset.becamePlayerId);
+    if (v !== undefined) return v * fallback.scale;
+  }
+  const v = fallback.pickValues.get(`${asset.season} ${pickRoundLabel(asset.round)}`);
+  return v !== undefined ? v * fallback.scale : null;
+}
+
 // Build the aging series for every trade: one line per side, sampled
 // along the sheet's date axis from trade day to today.
 export function buildVaultTrades(
@@ -146,7 +191,8 @@ export function buildVaultTrades(
   historicalData: HistoricalValueData,
   playerMapping: Map<string, string>,
   players: SleeperPlayersMap = {},
-  maxPoints: number = 60
+  maxPoints: number = 60,
+  fallback: FallbackValues | null = null
 ): VaultTrade[] {
   const result: VaultTrade[] = [];
 
@@ -168,18 +214,43 @@ export function buildVaultTrades(
         }
         return { date, value: Math.round(total) };
       });
+      // Today's value: real sheet data for tracked assets, plus rescaled
+      // fallback estimates for anything the sheet doesn't cover.
+      const latestDate = dates[dates.length - 1];
+      const latestValues = historicalData.values.get(latestDate);
+      let todayValue = 0;
+      let todayIsEstimated = false;
       for (const asset of assets) {
         const anyValue = dates.some(
           d => assetValueAt(historicalData.values.get(d), asset, playerMapping) !== null
         );
         if (anyValue) tracked++;
+
+        const real = assetValueAt(latestValues, asset, playerMapping);
+        if (real !== null) {
+          todayValue += real;
+        } else if (fallback) {
+          const est = fallbackAssetValue(asset, fallback);
+          if (est !== null) {
+            todayValue += est;
+            todayIsEstimated = true;
+          }
+        }
       }
+      // FAAB changing hands is labeled but carries no market value
+      const labels = assets.map(a => assetLabel(a, players, draftMap));
+      for (const budget of trade.waiver_budget || []) {
+        if (budget.receiver === rosterId) labels.push(`$${budget.amount} FAAB`);
+      }
+
       return {
         rosterId,
         points,
         trackedAssets: tracked,
         totalAssets: assets.length,
-        assetLabels: assets.map(a => assetLabel(a, players, draftMap)),
+        assetLabels: labels,
+        todayValue: Math.round(todayValue),
+        todayIsEstimated,
       };
     });
 

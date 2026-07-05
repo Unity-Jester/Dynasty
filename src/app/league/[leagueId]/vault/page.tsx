@@ -12,8 +12,10 @@ import {
   getUserByOwnerId,
 } from '@/lib/sleeper';
 import { fetchHistoricalValues, buildPlayerNameMapping } from '@/lib/historicalValues';
+import { fetchFantasyCalcValues } from '@/lib/rankings';
 import {
   buildVaultTrades,
+  estimateScaleFactor,
   buildRosterEvents,
   reconstructFranchiseSeries,
   findSuperlatives,
@@ -156,7 +158,19 @@ export default async function VaultPage({ params }: LeaguePageProps) {
     }
 
     // --- Trade aging series ---
-    const vaultTrades = buildVaultTrades(allTrades, draftMap, historicalData, playerMapping, players);
+    // FantasyCalc fills today's value for assets the sheet doesn't track,
+    // rescaled onto the sheet's scale via the overlap between sources.
+    const fc = await fetchFantasyCalcValues();
+    const scale = estimateScaleFactor(
+      historicalData.values.get(historicalData.dates[0]),
+      fc.playerValues,
+      playerMapping
+    );
+    const fallback = { playerValues: fc.playerValues, pickValues: fc.pickValues, scale };
+
+    const vaultTrades = buildVaultTrades(
+      allTrades, draftMap, historicalData, playerMapping, players, 60, fallback
+    );
     const chartable = vaultTrades.filter(isChartable);
     const { heist, photoFinish } = findSuperlatives(vaultTrades);
 
@@ -329,8 +343,12 @@ export default async function VaultPage({ params }: LeaguePageProps) {
                         <span className="text-white shrink-0">
                           {truncateName(names.get(side.rosterId) || `Team ${side.rosterId}`, 14)}
                         </span>
-                        <span className="text-gray-500 tabular-nums text-xs shrink-0">
-                          {abbreviateNumber(side.points[side.points.length - 1]?.value || 0)}
+                        <span
+                          className="text-gray-500 tabular-nums text-xs shrink-0"
+                          title={side.todayIsEstimated ? 'Includes estimates for assets the value sheet does not track' : undefined}
+                        >
+                          {side.todayIsEstimated ? '\u2248' : ''}
+                          {abbreviateNumber(side.todayValue)}
                         </span>
                         <span
                           className="text-gray-400 text-xs truncate"
@@ -366,9 +384,11 @@ export default async function VaultPage({ params }: LeaguePageProps) {
         </div>
 
         <p className="text-xs text-gray-600">
-          Values from the historical market sheet ({historicalData.dates[0]} latest). Players the
-          sheet doesn&apos;t track (mostly fresh rookies) are excluded from lines and flagged in
-          coverage badges; traded picks are valued as picks until their selection enters the data.
+          Chart lines use the historical market sheet ({historicalData.dates[0]} latest), which
+          tracks a curated set of players &mdash; untracked assets are excluded from lines and
+          flagged in coverage badges. Today&apos;s values marked &asymp; fill those gaps with
+          FantasyCalc data rescaled onto the sheet&apos;s scale (&times;{scale.toFixed(2)});
+          traded picks are valued as picks until their selection enters the data.
         </p>
       </div>
     );

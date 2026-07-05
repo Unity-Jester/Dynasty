@@ -227,3 +227,26 @@ describe('asset labels', () => {
     expect(side2.assetLabels).toEqual(['Star Player']);
   });
 });
+
+describe('today-value estimates', () => {
+  it('fills untracked assets with rescaled fallback values', async () => {
+    const { buildVaultTrades: build, estimateScaleFactor: scaleFn } = await import('../vault');
+    const fallback = {
+      playerValues: new Map([['unknown_rookie', 2000]]),
+      pickValues: new Map([['2026 1st', 3000]]),
+      scale: 2,
+    };
+    const trade = makeTrade({ adds: { star: 1, unknown_rookie: 2 } });
+    const [vt] = build([trade], null, makeSheet(), mapping, {} as never, 60, fallback);
+
+    const side1 = vt.sides.find(s => s.rosterId === 1)!;
+    const side2 = vt.sides.find(s => s.rosterId === 2)!;
+    expect(side1.todayValue).toBe(9000); // real sheet value, no estimate
+    expect(side1.todayIsEstimated).toBe(false);
+    expect(side2.todayValue).toBe(4000); // 2000 x scale 2
+    expect(side2.todayIsEstimated).toBe(true);
+
+    // Scale factor: insufficient overlap falls back to default
+    expect(scaleFn(new Map(), new Map(), new Map(), 1.8)).toBe(1.8);
+  });
+});
