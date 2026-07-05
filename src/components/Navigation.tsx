@@ -12,6 +12,7 @@ const navItems = [
   { path: '/teams', label: 'Teams' },
   { path: '/draft', label: 'Draft' },
   { path: '/trades', label: 'Trades' },
+  { path: '/vault', label: 'Vault' },
   { path: '/history', label: 'History' },
   { path: '/settings', label: 'Settings' },
 ];
