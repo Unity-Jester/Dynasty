@@ -234,12 +234,12 @@ export default async function VaultPage({ params }: LeaguePageProps) {
     // FantasyCalc fills today's value for assets the sheet doesn't track,
     // rescaled onto the sheet's scale via the overlap between sources.
     const fc = await fetchFantasyCalcValues();
-    const scale = estimateScaleFactor(
+    const scaleFactor = estimateScaleFactor(
       historicalData.values.get(historicalData.dates[0]),
       fc.playerValues,
       playerMapping
     );
-    const fallback = { playerValues: fc.playerValues, pickValues: fc.pickValues, scale };
+    const fallback = { playerValues: fc.playerValues, pickValues: fc.pickValues, scale: scaleFactor };
 
     const vaultTrades = buildVaultTrades(
       allTrades, draftMap, historicalData, playerMapping, players, 60, fallback
@@ -499,7 +499,7 @@ export default async function VaultPage({ params }: LeaguePageProps) {
           Chart lines use the historical market sheet ({historicalData.dates[0]} latest), which
           tracks a curated set of players &mdash; untracked assets are excluded from lines and
           flagged in coverage badges. Today&apos;s values marked &asymp; fill those gaps with
-          FantasyCalc data rescaled onto the sheet&apos;s scale (&times;{scale.toFixed(2)});
+          FantasyCalc data rescaled onto the sheet&apos;s scale (&times;{scaleFactor.toFixed(2)});
           traded picks are valued as picks until their selection enters the data.
         </p>
       </div>

@@ -7,9 +7,11 @@ const HISTORICAL_VALUES_URL =
   process.env.HISTORICAL_VALUES_CSV_URL ||
   'https://docs.google.com/spreadsheets/d/1n5aqip8iFCpltO8deiS7q9m3u_dFvKTZpwzfZXVTpgs/export?format=csv&gid=991742784';
 
-// Cache for historical values data
-let historicalDataCache: HistoricalValueData | null = null;
-let historicalDataCacheTime: number = 0;
+// Single-entry TTL cache for historical values data
+const historicalDataCache: { value: HistoricalValueData | null; time: number } = {
+  value: null,
+  time: 0,
+};
 const CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours
 
 export interface HistoricalValueData {
@@ -69,8 +71,8 @@ function parseCSV(csvText: string): HistoricalValueData {
 export async function fetchHistoricalValues(): Promise<HistoricalValueData> {
   const now = Date.now();
 
-  if (historicalDataCache && (now - historicalDataCacheTime) < CACHE_DURATION) {
-    return historicalDataCache;
+  if (historicalDataCache.value && (now - historicalDataCache.time) < CACHE_DURATION) {
+    return historicalDataCache.value;
   }
 
   try {
@@ -83,10 +85,10 @@ export async function fetchHistoricalValues(): Promise<HistoricalValueData> {
     }
 
     const csvText = await response.text();
-    historicalDataCache = parseCSV(csvText);
-    historicalDataCacheTime = now;
+    historicalDataCache.value = parseCSV(csvText);
+    historicalDataCache.time = now;
 
-    return historicalDataCache;
+    return historicalDataCache.value;
   } catch (error) {
     console.error('Error fetching historical values:', error);
     // Return empty data structure if fetch fails

@@ -16,9 +16,11 @@ import { getTeamName } from './utils';
 
 const SLEEPER_API_BASE = 'https://api.sleeper.app/v1';
 
-// Cache for player data (large ~5MB file)
-let playersCache: SleeperPlayersMap | null = null;
-let playersCacheTime: number = 0;
+// Single-entry TTL cache for player data (large ~5MB file)
+const playersCache: { value: SleeperPlayersMap | null; time: number } = {
+  value: null,
+  time: 0,
+};
 const PLAYERS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
 // Generic fetch helper
@@ -81,13 +83,13 @@ export async function getDraftPicks(draftId: string): Promise<SleeperDraftPick[]
 export async function getAllPlayers(): Promise<SleeperPlayersMap> {
   const now = Date.now();
 
-  if (playersCache && (now - playersCacheTime) < PLAYERS_CACHE_DURATION) {
-    return playersCache;
+  if (playersCache.value && (now - playersCache.time) < PLAYERS_CACHE_DURATION) {
+    return playersCache.value;
   }
 
   const players = await fetchSleeper<SleeperPlayersMap>('/players/nfl');
-  playersCache = players;
-  playersCacheTime = now;
+  playersCache.value = players;
+  playersCache.time = now;
 
   return players;
 }

@@ -37,36 +37,36 @@ export default function TradeHistory({ seasonTrades, players, currentSeason, tra
   };
 
   // Check if a trade involves the search term (player name or pick)
-  const tradeMatchesSearch = (trade: SleeperTransaction, term: string): boolean => {
-    const lowerTerm = term.toLowerCase();
-
-    // Check players involved (adds and drops)
-    const playerIds = [
-      ...Object.keys(trade.adds || {}),
-      ...Object.keys(trade.drops || {}),
-    ];
-
-    for (const playerId of playerIds) {
-      const player = players[playerId];
-      if (player?.full_name?.toLowerCase().includes(lowerTerm)) {
-        return true;
-      }
-    }
-
-    // Check draft picks
-    for (const pick of trade.draft_picks || []) {
-      const pickStr = `${pick.season} round ${pick.round}`.toLowerCase();
-      const pickStr2 = `${pick.season} ${pick.round}${pick.round === 1 ? 'st' : pick.round === 2 ? 'nd' : pick.round === 3 ? 'rd' : 'th'}`.toLowerCase();
-      if (pickStr.includes(lowerTerm) || pickStr2.includes(lowerTerm)) {
-        return true;
-      }
-    }
-
-    return false;
-  };
-
   // Filter trades based on search term
   const filteredSeasonTrades = useMemo(() => {
+    const tradeMatchesSearch = (trade: SleeperTransaction, term: string): boolean => {
+      const lowerTerm = term.toLowerCase();
+
+      // Check players involved (adds and drops)
+      const playerIds = [
+        ...Object.keys(trade.adds || {}),
+        ...Object.keys(trade.drops || {}),
+      ];
+
+      for (const playerId of playerIds) {
+        const player = players[playerId];
+        if (player?.full_name?.toLowerCase().includes(lowerTerm)) {
+          return true;
+        }
+      }
+
+      // Check draft picks
+      for (const pick of trade.draft_picks || []) {
+        const pickStr = `${pick.season} round ${pick.round}`.toLowerCase();
+        const pickStr2 = `${pick.season} ${pick.round}${pick.round === 1 ? 'st' : pick.round === 2 ? 'nd' : pick.round === 3 ? 'rd' : 'th'}`.toLowerCase();
+        if (pickStr.includes(lowerTerm) || pickStr2.includes(lowerTerm)) {
+          return true;
+        }
+      }
+
+      return false;
+    };
+
     if (!searchTerm.trim()) {
       return seasonTrades;
     }
@@ -120,7 +120,7 @@ export default function TradeHistory({ seasonTrades, players, currentSeason, tra
 
       {isFiltered && filteredSeasonTrades.length === 0 && (
         <div className="panel p-8 text-center">
-          <p className="text-gray-400">No trades found matching "{searchTerm}"</p>
+          <p className="text-gray-400">No trades found matching &ldquo;{searchTerm}&rdquo;</p>
         </div>
       )}
 

@@ -1,0 +1,94 @@
+{
+  "extends": ["next/core-web-vitals"],
+  "rules": {
+    "no-labels": "error",
+    "complexity": ["error", 10],
+    "max-depth": ["error", 3],
+    "max-lines": ["error", { "max": 400, "skipBlankLines": true, "skipComments": true }],
+    "max-lines-per-function": [
+      "error",
+      { "max": 60, "skipBlankLines": true, "skipComments": true, "IIFEs": true }
+    ],
+    "no-constant-condition": ["error", { "checkLoops": true }],
+    "no-var": "error",
+    "prefer-const": "error",
+    "no-param-reassign": "error",
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "no-unused-expressions": "error",
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "Program > VariableDeclaration[kind='let']",
+        "message": "No module-level mutable state (Rules 3/6). Move state into the request/function scope."
+      },
+      {
+        "selector": "TSTypeReference > Identifier[name='Function']",
+        "message": "Bare Function type is banned (Rule 9). Declare an explicit signature."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["**/*.ts", "**/*.tsx"],
+      "plugins": ["@typescript-eslint"],
+      "parserOptions": { "project": "./tsconfig.json" },
+      "rules": {
+        "@typescript-eslint/no-floating-promises": "error",
+        "@typescript-eslint/no-explicit-any": "error",
+        "no-shadow": "off",
+        "@typescript-eslint/no-shadow": "error"
+      }
+    },
+    {
+      "files": ["**/*.tsx"],
+      "rules": {
+        "max-lines-per-function": [
+          "error",
+          { "max": 150, "skipBlankLines": true, "skipComments": true, "IIFEs": true }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/app/league/\\[leagueId\\]/draft/page.tsx",
+        "src/app/league/\\[leagueId\\]/history/page.tsx",
+        "src/app/league/\\[leagueId\\]/matchups/page.tsx",
+        "src/app/league/\\[leagueId\\]/odds/page.tsx",
+        "src/app/league/\\[leagueId\\]/page.tsx",
+        "src/app/league/\\[leagueId\\]/settings/page.tsx",
+        "src/app/league/\\[leagueId\\]/vault/page.tsx",
+        "src/app/portfolio/\\[username\\]/page.tsx",
+        "src/components/LeaguePicker.tsx",
+        "src/components/Matchup.tsx",
+        "src/components/Standings.tsx",
+        "src/components/TradeAnalyzer.tsx",
+        "src/components/TradeHistory.tsx",
+        "src/components/TradeReportCard.tsx",
+        "src/components/TransactionCard.tsx",
+        "src/lib/rankings.ts",
+        "src/lib/rosterAnalysis.ts",
+        "src/lib/seasonStats.ts",
+        "src/lib/simulation.ts",
+        "src/lib/sleeper.ts",
+        "src/lib/tradeAnalysis.ts",
+        "src/lib/types.ts",
+        "src/lib/vault.ts"
+      ],
+      "rules": {
+        "complexity": "off",
+        "max-depth": "off",
+        "max-lines": "off",
+        "max-lines-per-function": "off"
+      }
+    },
+    {
+      "files": ["**/__tests__/**"],
+      "rules": {
+        "max-lines-per-function": "off",
+        "max-lines": ["error", { "max": 800, "skipBlankLines": true, "skipComments": true }]
+      }
+    }
+  ]
+}

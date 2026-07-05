@@ -52,7 +52,7 @@ export function calculateRawScore(avgNetValue: number, totalTrades: number): num
 
   // Score based on average net value per trade
   // Each 100 value difference moves the score by ~3 points
-  let score = 50 + avgNetValue / 33;
+  const score = 50 + avgNetValue / 33;
   return Math.max(0, Math.min(100, score));
 }
 
