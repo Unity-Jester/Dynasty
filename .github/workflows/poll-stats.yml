@@ -1,0 +1,25 @@
+# Requires repo secrets APP_URL and CRON_SECRET. Inert until the app is
+# deployed (Phase 8/9) — until then, trigger a poll locally via curl:
+#   curl -X POST -H "Authorization: Bearer $CRON_SECRET" \
+#     http://localhost:3000/api/jobs/poll-stats
+#
+# The cron entries below approximate US NFL game windows in UTC:
+#   '*/15 17-23 * * 0'    Sun 17:00-23:59 UTC (Sun early/late window + early SNF)
+#   '*/15 0-5 * * 1,2,5'  Mon/Tue/Fri 00:00-05:59 UTC = Sun night (SNF late) +
+#                         Mon night (MNF) + Thu night (TNF) US game windows
+# Tune these at deploy time once real kickoff/broadcast windows are confirmed.
+name: poll-stats
+on:
+  schedule:
+    - cron: '*/15 17-23 * * 0'
+    - cron: '*/15 0-5 * * 1,2,5'
+  workflow_dispatch: {}
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Poll live stats
+        run: |
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/jobs/poll-stats"
