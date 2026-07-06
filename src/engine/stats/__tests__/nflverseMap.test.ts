@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { parseCSVLine } from '@/lib/utils';
-import { mapNflverseRow, parseCrosswalk } from '../nflverseMap';
+import { MAPPED_SLEEPER_KEYS, mapNflverseRow, parseCrosswalk } from '../nflverseMap';
 
 const statsFixtureText = readFileSync(
   join(__dirname, '../__fixtures__/nflverse-2023-wk17-sample.csv'),
@@ -38,19 +38,32 @@ describe('mapNflverseRow', () => {
     expect(mapped.rec).toBe(4);
     expect(mapped.rec_yd).toBe(27);
     expect(mapped.rec_td).toBe(0);
-    // All three fumbles-lost components are present-and-zero in this row,
-    // so fum_lost should be present and 0 (not omitted).
-    expect(mapped.fum_lost).toBe(0);
+    // fum_lost is deliberately NOT emitted even though all three nflverse
+    // fumbles-lost components are present in this row — see the exclusion
+    // regression tests below.
+    expect(mapped.fum_lost).toBeUndefined();
   });
 
-  it('sums sack/rushing/receiving fumbles-lost into fum_lost (synthetic: 1 + 1 + 0 = 2)', () => {
+  // Regression: nflverse's fumbles-lost columns (sack/rushing/receiving) cover
+  // OFFENSIVE fumbles only, while Sleeper's fum_lost includes special teams.
+  // A narrower source must never zero a wider one (live 2023 wk17: nflverse's
+  // 0 would have erased real -2/fumble points for kick returners). fum_lost is
+  // therefore excluded from the mapping entirely.
+  it('never emits fum_lost, even when all fumbles-lost components are present and nonzero', () => {
     const row: Record<string, string> = {
       sack_fumbles_lost: '1',
       rushing_fumbles_lost: '1',
       receiving_fumbles_lost: '0',
     };
     const mapped = mapNflverseRow(row);
-    expect(mapped.fum_lost).toBe(2);
+    expect(mapped.fum_lost).toBeUndefined();
+  });
+
+  it('excludes fum_lost from the exported mapped-keys list the reconcile diff uses', () => {
+    expect(MAPPED_SLEEPER_KEYS).not.toContain('fum_lost');
+    // Sanity: the list still carries the 1:1 mapped keys.
+    expect(MAPPED_SLEEPER_KEYS).toContain('rush_yd');
+    expect(MAPPED_SLEEPER_KEYS).toContain('rec_yd');
   });
 
   it('drops empty-string and non-numeric mapped columns instead of coercing to 0/NaN', () => {
@@ -65,17 +78,17 @@ describe('mapNflverseRow', () => {
     expect(mapped.rec_yd).toBe(12);
   });
 
-  it('omits fum_lost entirely when none of the three fumble-lost components are present', () => {
+  it('omits fum_lost when no fumble-lost components are present (exclusion holds trivially)', () => {
     const row: Record<string, string> = { receiving_yards: '12' };
     const mapped = mapNflverseRow(row);
     expect(mapped.fum_lost).toBeUndefined();
   });
 
-  it('bounds output keys to at most the mapping size + 1 (fum_lost)', () => {
+  it('bounds output keys to at most the mapping size (no aggregations)', () => {
     const rows = parseFixtureRows(statsFixtureText);
     for (const row of rows) {
       const mapped = mapNflverseRow(row);
-      expect(Object.keys(mapped).length).toBeLessThanOrEqual(14); // 13 mapped cols + fum_lost
+      expect(Object.keys(mapped).length).toBeLessThanOrEqual(12); // the 12 1:1 mapped cols
     }
   });
 });

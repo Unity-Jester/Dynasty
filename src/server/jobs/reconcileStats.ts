@@ -5,7 +5,7 @@ import { getDb } from '@/server/db';
 import { players, statLines } from '@/server/schema';
 import { parseCSVLine } from '@/lib/utils';
 import { invariant } from '@/lib/invariant';
-import { NFLVERSE_TO_SLEEPER, mapNflverseRow, parseCrosswalk } from '@/engine/stats/nflverseMap';
+import { MAPPED_SLEEPER_KEYS, mapNflverseRow, parseCrosswalk } from '@/engine/stats/nflverseMap';
 import { diffStatLines } from '@/engine/stats/diffStats';
 import { selectReleaseAsset, type ReleaseAsset } from '@/engine/stats/selectReleaseAsset';
 
@@ -40,13 +40,11 @@ const RELEASE_META_URL =
   'https://api.github.com/repos/nflverse/nflverse-data/releases/tags/player_stats';
 const CROSSWALK_URL = 'https://github.com/dynastyprocess/data/raw/master/files/db_playerids.csv';
 
-// The Sleeper keys nflverse actually maps to (mapping values + the one
-// aggregated key). diffStatLines is restricted to exactly this set so keys
-// nflverse doesn't cover (snaps, pts_std, DEF stats) are never touched.
-const MAPPED_SLEEPER_KEYS: readonly string[] = [
-  ...Object.values(NFLVERSE_TO_SLEEPER),
-  'fum_lost',
-];
+// diffStatLines is restricted to MAPPED_SLEEPER_KEYS (imported from the
+// engine — the single source of truth for nflverse's override authority) so
+// keys nflverse doesn't cover (snaps, pts_std, DEF stats, and notably
+// fum_lost, whose nflverse columns miss special-teams fumbles) are never
+// touched.
 
 export type ReconcileResult =
   | {

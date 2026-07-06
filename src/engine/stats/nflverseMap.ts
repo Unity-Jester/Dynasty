@@ -22,9 +22,24 @@ export const NFLVERSE_TO_SLEEPER = {
 } as const;
 
 const MAPPING_SIZE = Object.keys(NFLVERSE_TO_SLEEPER).length;
-// One aggregation beyond the 1:1 mapping: Sleeper's single fum_lost equals
-// the sum of nflverse's three phase-specific fumbles-lost columns.
-const FUM_LOST_COMPONENTS = ['sack_fumbles_lost', 'rushing_fumbles_lost', 'receiving_fumbles_lost'] as const;
+
+// ============================================================================
+// fum_lost is DELIBERATELY EXCLUDED from this mapping.
+//
+// nflverse splits fumbles-lost into sack_fumbles_lost / rushing_fumbles_lost /
+// receiving_fumbles_lost — OFFENSIVE fumbles only. Sleeper's single fum_lost
+// also counts special-teams fumbles (kick/punt returners). A narrower source
+// must not zero a wider one: summing nflverse's components and overriding
+// Sleeper would erase real fantasy points (observed live, 2023 wk17: three
+// returner fum_lost=1 rows that nflverse's offensive columns cannot see;
+// fum_lost scores -2, enough to flip matchups). Sleeper keeps sole authority
+// for fum_lost; do not re-add an aggregation here without a source that
+// covers all fumble phases.
+// ============================================================================
+
+// The Sleeper keys nflverse has override authority for — exactly the 1:1
+// mapping values above. The reconcile job's diff is restricted to this list.
+export const MAPPED_SLEEPER_KEYS: readonly string[] = Object.values(NFLVERSE_TO_SLEEPER);
 
 const MAX_CROSSWALK_ROWS = 20_000;
 
@@ -40,19 +55,9 @@ function parseNumericField(raw: string | undefined): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-// Sum the three fumbles-lost components, but only when at least one is
-// actually present in the row (absence of all three is not evidence of
-// zero — it means the column set didn't include them at all).
-function computeFumLost(row: Record<string, string>): number | undefined {
-  const values = FUM_LOST_COMPONENTS.map((key) => parseNumericField(row[key]));
-  const anyPresent = values.some((v) => v !== undefined);
-  if (!anyPresent) return undefined;
-  return values.reduce<number>((sum, v) => sum + (v ?? 0), 0);
-}
-
 // Map one nflverse CSV row (already split into a header->field Record) to
-// Sleeper stat keys. Bounded output: at most MAPPING_SIZE + 1 keys
-// (the +1 is fum_lost, the one aggregation).
+// Sleeper stat keys. Bounded output: at most MAPPING_SIZE keys — strictly the
+// 1:1 mapping, no aggregations (fum_lost exclusion documented above).
 export function mapNflverseRow(row: Record<string, string>): Record<string, number> {
   const mapped: Record<string, number> = {};
 
@@ -63,12 +68,7 @@ export function mapNflverseRow(row: Record<string, string>): Record<string, numb
     }
   }
 
-  const fumLost = computeFumLost(row);
-  if (fumLost !== undefined) {
-    mapped.fum_lost = fumLost;
-  }
-
-  invariant(Object.keys(mapped).length <= MAPPING_SIZE + 1, 'mapNflverseRow produced more keys than the mapping allows');
+  invariant(Object.keys(mapped).length <= MAPPING_SIZE, 'mapNflverseRow produced more keys than the mapping allows');
   invariant(
     Object.values(mapped).every((v) => Number.isFinite(v)),
     'mapNflverseRow produced a non-finite stat value',
