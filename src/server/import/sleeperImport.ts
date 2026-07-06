@@ -32,9 +32,6 @@ const MAX_PICK_BATCHES = 8;
 const MIN_SEASON = 2020;
 const MAX_SEASON = 2050;
 
-// A dry-run's userId is never written; a fixed sentinel keeps the read-only
-// path honest for callers (e.g. the verification script) that lack a real one.
-
 export type ImportResult =
   | { ok: true; mode: 'dry_run'; report: ImportReport }
   | { ok: true; mode: 'execute'; leagueId: string; report: ImportReport }
