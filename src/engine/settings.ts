@@ -15,7 +15,7 @@ export const SCORING_STAT_KEYS = [
   // team defense
   'def_td', 'def_st_td', 'def_st_fum_rec', 'def_2pt',
   'pts_allow', 'pts_allow_0', 'pts_allow_1_6', 'pts_allow_7_13',
-  'pts_allow_14_20', 'pts_allow_28_34', 'pts_allow_35p',
+  'pts_allow_14_20', 'pts_allow_21_27', 'pts_allow_28_34', 'pts_allow_35p',
   'yds_allow', 'ff', 'tkl', 'safe',
   // special teams
   'st_td', 'st_fum_rec', 'blk_kick',
