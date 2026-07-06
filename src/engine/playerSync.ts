@@ -14,9 +14,14 @@ const MAX_SKIP_RATIO = 0.5;
 const MIN_ENTRIES_FOR_RATIO_CHECK = 100;
 
 // Validate only the fields we persist — Sleeper's rows carry ~40 others.
+// full_name is absent on team DEF rows (only first_name/last_name), so all
+// three name fields are optional here; resolveName enforces that at least
+// one usable name part exists.
 const RawPlayer = z.object({
   player_id: z.string().min(1),
-  full_name: z.string().min(1),
+  full_name: z.string().nullish(),
+  first_name: z.string().nullish(),
+  last_name: z.string().nullish(),
   position: z.string().min(1),
   team: z.string().nullish(),
   status: z.string().nullish(),
@@ -38,18 +43,48 @@ export type MapResult =
   | { ok: true; value: { rows: PlayerRow[]; skipped: number } }
   | { ok: false; error: string };
 
-// Converts one already-validated raw entry to its row shape. Split out of
-// mapSleeperPlayers purely to keep that function's cyclomatic complexity
-// under the Rule 1 ceiling; behavior is unchanged.
-function toPlayerRow(p: z.infer<typeof RawPlayer>): PlayerRow {
+// Sleeper omits full_name on team DEF rows; derive the display name from
+// whichever parts exist. An unresolvable name makes the row invalid.
+function resolveName(p: z.infer<typeof RawPlayer>): string | null {
+  const full = (p.full_name ?? '').trim();
+  if (full.length > 0) {
+    return full;
+  }
+  const joined = `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim();
+  return joined.length > 0 ? joined : null;
+}
+
+type EntryOutcome =
+  | { kind: 'row'; row: PlayerRow }
+  | { kind: 'skipped' } // failed validation: an anomaly worth counting
+  | { kind: 'filtered' }; // non-rosterable position: dropped by design
+
+// Per-entry validate/filter/map. Split out of mapSleeperPlayers purely to
+// keep that function's cyclomatic complexity under the Rule 1 ceiling.
+function classifyEntry(entry: unknown): EntryOutcome {
+  const parsed = RawPlayer.safeParse(entry);
+  if (!parsed.success) {
+    return { kind: 'skipped' };
+  }
+  const p = parsed.data;
+  const fullName = resolveName(p);
+  if (fullName === null) {
+    return { kind: 'skipped' };
+  }
+  if (!(ROSTERABLE_POSITIONS as readonly string[]).includes(p.position)) {
+    return { kind: 'filtered' };
+  }
   return {
-    sleeperId: p.player_id,
-    fullName: p.full_name,
-    position: p.position,
-    nflTeam: p.team ?? null,
-    status: p.status ?? 'unknown',
-    injuryStatus: p.injury_status ?? null,
-    yearsExp: p.years_exp ?? null,
+    kind: 'row',
+    row: {
+      sleeperId: p.player_id,
+      fullName,
+      position: p.position,
+      nflTeam: p.team ?? null,
+      status: p.status ?? 'unknown',
+      injuryStatus: p.injury_status ?? null,
+      yearsExp: p.years_exp ?? null,
+    },
   };
 }
 
@@ -65,15 +100,12 @@ export function mapSleeperPlayers(input: unknown): MapResult {
   const rows: PlayerRow[] = [];
   let skipped = 0;
   for (const entry of entries) {
-    const parsed = RawPlayer.safeParse(entry);
-    if (!parsed.success) {
+    const outcome = classifyEntry(entry);
+    if (outcome.kind === 'skipped') {
       skipped += 1;
-      continue;
+    } else if (outcome.kind === 'row') {
+      rows.push(outcome.row);
     }
-    if (!(ROSTERABLE_POSITIONS as readonly string[]).includes(parsed.data.position)) {
-      continue; // non-rosterable position: filtered by design, not an anomaly
-    }
-    rows.push(toPlayerRow(parsed.data));
   }
   invariant(rows.length + skipped <= entries.length, 'row accounting exceeded input size');
   if (entries.length >= MIN_ENTRIES_FOR_RATIO_CHECK && skipped / entries.length > MAX_SKIP_RATIO) {

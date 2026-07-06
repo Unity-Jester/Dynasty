@@ -6,8 +6,9 @@ const raw = {
     player_id: '4034', full_name: 'Christian McCaffrey', position: 'RB',
     team: 'SF', status: 'Active', injury_status: null, years_exp: 9,
   },
+  // Sleeper's real DEF shape: NO full_name, only first_name/last_name.
   DEF_SF: {
-    player_id: 'SF', full_name: 'San Francisco 49ers', position: 'DEF',
+    player_id: 'SF', first_name: 'San Francisco', last_name: '49ers', position: 'DEF',
     team: 'SF', status: 'Active', injury_status: null, years_exp: 0,
   },
   '9999': {
@@ -142,5 +143,39 @@ describe('mapSleeperPlayers', () => {
 
   it('rejects an array input explicitly', () => {
     expect(mapSleeperPlayers([]).ok).toBe(false);
+  });
+
+  // Live-sync fix: Sleeper DEF rows omit full_name entirely.
+
+  it('maps a DEF row without full_name by joining first_name/last_name', () => {
+    const result = mapSleeperPlayers(raw);
+    if (!result.ok) throw new Error('expected ok');
+    const def = result.value.rows.find((r) => r.sleeperId === 'SF');
+    expect(def).toEqual({
+      sleeperId: 'SF', fullName: 'San Francisco 49ers', position: 'DEF',
+      nflTeam: 'SF', status: 'Active', injuryStatus: null, yearsExp: 0,
+    });
+  });
+
+  it('skips a row with no name fields at all', () => {
+    const noName = {
+      p1: { player_id: 'p1', position: 'RB', team: 'SF' },
+    };
+    const result = mapSleeperPlayers(noName);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.value.skipped).toBe(1);
+    expect(result.value.rows).toHaveLength(0);
+  });
+
+  it('prefers full_name over first_name/last_name when both are present', () => {
+    const both = {
+      p1: {
+        player_id: 'p1', full_name: 'Preferred Name',
+        first_name: 'Ignored', last_name: 'Parts', position: 'QB', team: 'KC',
+      },
+    };
+    const result = mapSleeperPlayers(both);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.value.rows[0]?.fullName).toBe('Preferred Name');
   });
 });
