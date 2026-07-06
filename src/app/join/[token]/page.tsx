@@ -6,6 +6,9 @@ import { createSupabaseServerClient } from '@/server/supabase';
 import ClaimButton from './ClaimButton';
 
 const MAX_TOKEN_LENGTH = 200;
+// generateInviteToken() always yields exactly 64 chars; any other length
+// means the link was clipped in transit (partial copy, mangled paste).
+const EXPECTED_TOKEN_LENGTH = 64;
 
 type Invite = { teamName: string; leagueName: string; claimed: boolean };
 
@@ -54,6 +57,19 @@ function Shell({ children }: { children: React.ReactNode }) {
 export default async function JoinPage({ params }: { params: { token: string } }) {
   const token = decodeURIComponent(params.token);
   const invite = await lookupInvite(token);
+
+  if (!invite && token.length !== EXPECTED_TOKEN_LENGTH) {
+    return (
+      <Shell>
+        <h1 className="font-display text-2xl text-white">Incomplete invite link</h1>
+        <p className="text-gray-400">
+          This link looks cut off &mdash; part of it is missing. Ask your
+          commissioner to re-send it with the copy button, and make sure the
+          whole link comes through.
+        </p>
+      </Shell>
+    );
+  }
 
   if (!invite || invite.claimed) {
     return (
