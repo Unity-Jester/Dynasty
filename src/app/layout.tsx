@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Fraunces, Instrument_Sans } from 'next/font/google';
 import './globals.css';
 import Navigation from '@/components/Navigation';
+import { getSiteOrigin } from '@/lib/siteOrigin';
 
 const fraunces = Fraunces({
   subsets: ['latin'],
@@ -15,10 +16,7 @@ const instrumentSans = Instrument_Sans({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
-  ),
+  metadataBase: new URL(getSiteOrigin()),
   title: 'Dynasty League Hub',
   description:
     'Standings, matchups, trade grades, draft analysis, and league history for any Sleeper dynasty league.',
