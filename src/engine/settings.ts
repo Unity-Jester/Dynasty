@@ -1,12 +1,28 @@
 import { z } from 'zod';
 
 // Stat keys follow Sleeper's naming so imported scoring settings map 1:1.
+// Extend deliberately; unknown keys are rejected, not ignored.
 export const SCORING_STAT_KEYS = [
-  'pass_yd', 'pass_td', 'pass_int', 'pass_2pt',
-  'rush_yd', 'rush_td', 'rush_2pt',
-  'rec', 'rec_yd', 'rec_td', 'rec_2pt',
-  'fum_lost', 'bonus_rec_te',
-  // extend deliberately; unknown keys are rejected, not ignored
+  // offense
+  'pass_yd', 'pass_td', 'pass_int', 'pass_2pt', 'pass_att', 'pass_cmp',
+  'pass_cmp_40p', 'pass_inc', 'pass_td_40p',
+  'rush_yd', 'rush_td', 'rush_2pt', 'rush_att', 'rush_td_40p',
+  'rec', 'rec_yd', 'rec_td', 'rec_2pt', 'rec_td_40p',
+  'fum_lost', 'fum_rec', 'sack', 'int',
+  // kicking
+  'fgm', 'fgm_0_19', 'fgm_20_29', 'fgm_30_39', 'fgm_40_49', 'fgm_50p',
+  'fgmiss', 'fga', 'xpm', 'xpmiss', 'xpa',
+  // team defense
+  'def_td', 'def_st_td', 'def_st_fum_rec', 'def_2pt',
+  'pts_allow', 'pts_allow_0', 'pts_allow_1_6', 'pts_allow_7_13',
+  'pts_allow_14_20', 'pts_allow_28_34', 'pts_allow_35p',
+  'yds_allow', 'ff', 'tkl', 'safe',
+  // special teams
+  'st_td', 'st_fum_rec', 'blk_kick',
+  // bonuses
+  'bonus_rec_te', 'bonus_pass_yd_300', 'bonus_pass_yd_400',
+  'bonus_rush_yd_100', 'bonus_rush_yd_200',
+  'bonus_rec_yd_100', 'bonus_rec_yd_200',
 ] as const;
 
 // Lineup slots, not player positions — see ROSTERABLE_POSITIONS in playerSync.ts;
