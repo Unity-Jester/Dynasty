@@ -9,6 +9,8 @@ export const SCORING_STAT_KEYS = [
   // extend deliberately; unknown keys are rejected, not ignored
 ] as const;
 
+// Lineup slots, not player positions — see ROSTERABLE_POSITIONS in playerSync.ts;
+// Phase 6 needs an explicit position→eligible-slots mapping, do not assume these lists align.
 export const ROSTER_SLOTS = [
   'QB', 'RB', 'WR', 'TE', 'FLEX', 'SUPER_FLEX', 'K', 'DEF',
   'BENCH', 'TAXI', 'IR',

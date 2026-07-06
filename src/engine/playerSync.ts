@@ -1,7 +1,17 @@
 import { z } from 'zod';
+import { invariant } from '@/lib/invariant';
 
+// Player positions, not lineup slots — see ROSTER_SLOTS in settings.ts; Phase 6
+// needs an explicit position→eligible-slots mapping, do not assume these lists align.
 export const ROSTERABLE_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'] as const;
 const MAX_SLEEPER_PLAYERS = 30_000; // Sleeper's map is ~11k; 30k = something is wrong
+
+// Systemic-failure tripwire: a Sleeper schema change would fail almost every
+// row; without this, ~11k skips would still return ok:true and look like
+// routine noise. The entry-count floor keeps small fixtures on the
+// skip-don't-fail path.
+const MAX_SKIP_RATIO = 0.5;
+const MIN_ENTRIES_FOR_RATIO_CHECK = 100;
 
 // Validate only the fields we persist — Sleeper's rows carry ~40 others.
 const RawPlayer = z.object({
@@ -44,7 +54,7 @@ function toPlayerRow(p: z.infer<typeof RawPlayer>): PlayerRow {
 }
 
 export function mapSleeperPlayers(input: unknown): MapResult {
-  if (typeof input !== 'object' || input === null) {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
     return { ok: false, error: 'players payload is not an object' };
   }
   const entries = Object.values(input);
@@ -64,6 +74,10 @@ export function mapSleeperPlayers(input: unknown): MapResult {
       continue; // non-rosterable position: filtered by design, not an anomaly
     }
     rows.push(toPlayerRow(parsed.data));
+  }
+  invariant(rows.length + skipped <= entries.length, 'row accounting exceeded input size');
+  if (entries.length >= MIN_ENTRIES_FOR_RATIO_CHECK && skipped / entries.length > MAX_SKIP_RATIO) {
+    return { ok: false, error: `systemic parse failure: ${skipped}/${entries.length} rows skipped` };
   }
   return { ok: true, value: { rows, skipped } };
 }

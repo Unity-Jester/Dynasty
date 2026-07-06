@@ -103,4 +103,44 @@ describe('mapSleeperPlayers', () => {
     const result = mapSleeperPlayers(atLimit);
     expect(result.ok).toBe(true);
   });
+
+  // Review follow-up: systemic-failure detection and input-guard tightening.
+
+  it('errs on systemic parse failure (90/150 rows bad)', () => {
+    const map: Record<string, unknown> = {};
+    for (let i = 0; i < 60; i++) map[`good${i}`] = raw['4034'];
+    for (let i = 0; i < 90; i++) map[`bad${i}`] = { player_id: `bad${i}` };
+    const result = mapSleeperPlayers(map);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('systemic');
+  });
+
+  it('tolerates routine skip noise below the ratio (30/150 rows bad)', () => {
+    const map: Record<string, unknown> = {};
+    for (let i = 0; i < 120; i++) map[`good${i}`] = raw['4034'];
+    for (let i = 0; i < 30; i++) map[`bad${i}`] = { player_id: `bad${i}` };
+    const result = mapSleeperPlayers(map);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.skipped).toBe(30);
+  });
+
+  it('skips without failing on small maps even at a high bad ratio (below the floor)', () => {
+    const map: Record<string, unknown> = {
+      good: raw['4034'],
+      bad1: { player_id: 'bad1' },
+      bad2: { player_id: 'bad2' },
+      bad3: { player_id: 'bad3' },
+    };
+    const result = mapSleeperPlayers(map);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.skipped).toBe(3);
+    expect(result.value.rows).toHaveLength(1);
+  });
+
+  it('rejects an array input explicitly', () => {
+    expect(mapSleeperPlayers([]).ok).toBe(false);
+  });
 });
