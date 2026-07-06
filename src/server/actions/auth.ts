@@ -2,12 +2,22 @@
 
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
+import { safeNextPath } from '@/lib/auth/nextPath';
 import { getSiteOrigin } from '@/lib/siteOrigin';
 import { createSupabaseServerClient } from '@/server/supabase';
 
 export type AuthActionResult = { ok: true } | { ok: false; error: string };
 
 const emailSchema = z.string().email().max(254);
+const nextSchema = z.string().max(2048).nullish();
+
+// Builds the post-auth callback URL, carrying the sanitized return path.
+// safeNextPath runs here AND in the callback route - both boundaries.
+function callbackUrl(rawNext: unknown): string {
+  const parsed = nextSchema.safeParse(rawNext);
+  const nextPath = safeNextPath(parsed.success ? parsed.data : null);
+  return `${getSiteOrigin()}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+}
 
 // Server action backing the login page's "Send magic link" button.
 export async function sendMagicLink(formData: FormData): Promise<AuthActionResult> {
@@ -20,7 +30,7 @@ export async function sendMagicLink(formData: FormData): Promise<AuthActionResul
   const supabase = createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data,
-    options: { emailRedirectTo: `${getSiteOrigin()}/auth/callback` },
+    options: { emailRedirectTo: callbackUrl(formData.get('next')) },
   });
 
   if (error) {
@@ -33,11 +43,11 @@ export async function sendMagicLink(formData: FormData): Promise<AuthActionResul
 // On success it redirects straight to the provider's consent screen; it
 // only returns a result object on failure (Google isn't enabled in
 // Supabase yet, so this currently always errors until that's configured).
-export async function signInWithGoogle(): Promise<AuthActionResult> {
+export async function signInWithGoogle(next?: string | null): Promise<AuthActionResult> {
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: `${getSiteOrigin()}/auth/callback` },
+    options: { redirectTo: callbackUrl(next) },
   });
 
   if (error || !data.url) {

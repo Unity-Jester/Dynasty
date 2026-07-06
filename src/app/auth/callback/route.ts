@@ -3,6 +3,7 @@ import { getDb } from '@/server/db';
 import { profiles } from '@/server/schema';
 import { createSupabaseServerClient } from '@/server/supabase';
 import { displayNameFromEmail } from '@/lib/auth/displayName';
+import { safeNextPath } from '@/lib/auth/nextPath';
 
 // Completes the magic-link / OAuth flow: exchanges the auth code for a
 // session, then upserts a profile row so every signed-in user has one.
@@ -34,5 +35,8 @@ export async function GET(request: NextRequest) {
     .values({ id: user.id, displayName: displayNameFromEmail(user.email ?? '') })
     .onConflictDoNothing({ target: profiles.id });
 
-  return NextResponse.redirect(new URL('/l', request.url));
+  // Re-sanitize `next` here too - the query string is attacker-controlled
+  // regardless of what the login action embedded (open-redirect guard).
+  const nextPath = safeNextPath(request.nextUrl.searchParams.get('next'));
+  return NextResponse.redirect(new URL(nextPath, request.url));
 }

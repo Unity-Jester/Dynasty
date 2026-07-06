@@ -23,10 +23,14 @@ function statusFromQueryError(errorParam: string | null): Status {
 
 function LoginForm() {
   const searchParams = useSearchParams();
+  const next = searchParams.get('next');
   const [status, setStatus] = useState<Status>(() =>
     statusFromQueryError(searchParams.get('error'))
   );
   const [loading, setLoading] = useState(false);
+  // Documented env flag (Rule 8): flip on after enabling the Google provider
+  // in the Supabase dashboard. Inlined at build time for client components.
+  const googleEnabled = process.env.NEXT_PUBLIC_AUTH_GOOGLE_ENABLED === 'true';
 
   const handleSubmit = async (formData: FormData) => {
     setLoading(true);
@@ -41,7 +45,7 @@ function LoginForm() {
 
   const handleGoogle = async () => {
     setLoading(true);
-    const result = await signInWithGoogle();
+    const result = await signInWithGoogle(next);
     setLoading(false);
     // A successful call redirects server-side and never returns here.
     if (!result.ok) {
@@ -60,6 +64,7 @@ function LoginForm() {
 
       <div className="panel p-6 space-y-4">
         <form action={handleSubmit} className="space-y-3">
+          <input type="hidden" name="next" value={next ?? ''} />
           <input
             type="email"
             name="email"
@@ -78,22 +83,26 @@ function LoginForm() {
           </button>
         </form>
 
-        <div className="flex items-center gap-3 text-xs text-gray-500">
-          <div className="h-px flex-1 bg-white/10" />
-          or
-          <div className="h-px flex-1 bg-white/10" />
-        </div>
+        {googleEnabled && (
+          <>
+            <div className="flex items-center gap-3 text-xs text-gray-500">
+              <div className="h-px flex-1 bg-white/10" />
+              or
+              <div className="h-px flex-1 bg-white/10" />
+            </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            void handleGoogle();
-          }}
-          disabled={loading}
-          className="w-full px-4 py-3.5 bg-white/[0.04] border border-white/10 rounded-xl text-white font-medium hover:bg-white/[0.06] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Continue with Google
-        </button>
+            <button
+              type="button"
+              onClick={() => {
+                void handleGoogle();
+              }}
+              disabled={loading}
+              className="w-full px-4 py-3.5 bg-white/[0.04] border border-white/10 rounded-xl text-white font-medium hover:bg-white/[0.06] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Continue with Google
+            </button>
+          </>
+        )}
       </div>
 
       {status.kind === 'sent' && (

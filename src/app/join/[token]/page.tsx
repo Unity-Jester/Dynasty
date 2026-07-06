@@ -84,7 +84,7 @@ export default async function JoinPage({ params }: { params: { token: string } }
         <div className="space-y-3">
           <p className="text-sm text-gray-500">Sign in to claim this team.</p>
           <Link
-            href="/login"
+            href={`/login?next=${encodeURIComponent(`/join/${encodeURIComponent(token)}`)}`}
             className="block w-full px-4 py-3.5 bg-gradient-to-b from-gold-400 to-gold-600 text-sleeper-dark font-semibold rounded-xl hover:shadow-gold-glow hover:brightness-110 transition-all"
           >
             Sign in to continue
