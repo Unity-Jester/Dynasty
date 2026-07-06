@@ -22,12 +22,17 @@ export async function GET(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (user) {
-    await getDb()
-      .insert(profiles)
-      .values({ id: user.id, displayName: displayNameFromEmail(user.email ?? '') })
-      .onConflictDoNothing({ target: profiles.id });
+  // Fail loud: a successful exchange without a user means the sign-in did
+  // not really complete. Letting it through would surface later as a
+  // profiles FK violation far from the cause.
+  if (!user) {
+    return NextResponse.redirect(new URL('/login?error=auth', request.url));
   }
+
+  await getDb()
+    .insert(profiles)
+    .values({ id: user.id, displayName: displayNameFromEmail(user.email ?? '') })
+    .onConflictDoNothing({ target: profiles.id });
 
   return NextResponse.redirect(new URL('/l', request.url));
 }

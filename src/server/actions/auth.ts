@@ -2,21 +2,12 @@
 
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
+import { getSiteOrigin } from '@/lib/siteOrigin';
 import { createSupabaseServerClient } from '@/server/supabase';
 
 export type AuthActionResult = { ok: true } | { ok: false; error: string };
 
 const emailSchema = z.string().email().max(254);
-
-// Origin used for OAuth/magic-link redirects. Falls back to localhost so
-// local dev works without any env vars configured.
-function getSiteOrigin(): string {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL;
-  if (typeof configured === 'string' && configured.length > 0) {
-    return configured;
-  }
-  return 'http://localhost:3000';
-}
 
 // Server action backing the login page's "Send magic link" button.
 export async function sendMagicLink(formData: FormData): Promise<AuthActionResult> {
