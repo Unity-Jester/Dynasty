@@ -104,4 +104,28 @@ describe('parseCrosswalk', () => {
     expect(result.value.byGsis.size).toBe(2);
     expect(result.value.skipped).toBe(2);
   });
+
+  // Regression: the live db_playerids.csv carries the sentinel "NA" on
+  // thousands of rows and a handful of genuinely duplicate gsis_ids. Both
+  // previously broke the byGsis.size-based accounting invariant.
+  it('treats "NA" sentinel ids as skipped, not as a real mapping', () => {
+    const csv = 'gsis_id,sleeper_id\nNA,100\n00-0000002,NA\n00-0000003,300\n';
+    const result = parseCrosswalk(csv);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.byGsis.size).toBe(1);
+    expect(result.value.byGsis.has('NA')).toBe(false);
+    expect(result.value.skipped).toBe(2);
+  });
+
+  it('tolerates duplicate gsis_ids (last wins) without failing accounting', () => {
+    const csv = 'gsis_id,sleeper_id\n00-0000001,100\n00-0000001,101\n00-0000002,200\n';
+    const result = parseCrosswalk(csv);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Two rows collapse onto one key — size(2) < rows(3), yet no invariant throw.
+    expect(result.value.byGsis.size).toBe(2);
+    expect(result.value.byGsis.get('00-0000001')).toBe('101');
+    expect(result.value.skipped).toBe(0);
+  });
 });

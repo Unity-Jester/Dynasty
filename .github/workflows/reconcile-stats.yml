@@ -1,0 +1,40 @@
+# reconcile-stats: nightly nflverse correction pass. nflverse publishes
+# corrected community stats a day or so after game days, so this runs the
+# mornings after (Tue/Wed/Sat 09:30 UTC).
+#
+# Requires repo secrets APP_URL and CRON_SECRET.
+#
+# IMPORTANT — the reconcile route requires BOTH season and week (a correction
+# job never guesses which week to overwrite). Unlike poll-stats, we cannot fire
+# a param-less curl. The scheduled entries below are therefore COMMENTED OUT:
+# a live cron with no season/week would just POST a 400 every night — noise,
+# not a job.
+#
+# TODO(deploy): enable the cron entries once a "current week" derivation exists
+# (e.g. a small step that reads Sleeper's /state/nfl and computes season+week,
+# or a scheduled-poll route that self-resolves). Until then this workflow is
+# honestly inert on schedule and usable only via manual dispatch below.
+#
+#   schedule:
+#     - cron: '30 9 * * 2,3,6'   # Tue/Wed/Sat 09:30 UTC, mornings after game days
+name: reconcile-stats
+on:
+  # schedule:                     # enable at deploy — see TODO above
+  #   - cron: '30 9 * * 2,3,6'
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'NFL season, e.g. 2023'
+        required: true
+      week:
+        description: 'NFL week (1-18)'
+        required: true
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reconcile stats against nflverse
+        run: |
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/jobs/reconcile-stats?season=${{ inputs.season }}&week=${{ inputs.week }}"

@@ -77,6 +77,13 @@ export function mapNflverseRow(row: Record<string, string>): Record<string, numb
   return mapped;
 }
 
+// A crosswalk id is usable only when non-empty and not dynastyprocess's "NA"
+// sentinel (the live file carries "NA" on thousands of rows for players
+// without a real id). Blank or "NA" on either side -> row is skipped.
+function isUsableId(value: string | undefined): boolean {
+  return value !== undefined && value !== '' && value !== 'NA';
+}
+
 // Parse the dynastyprocess db_playerids crosswalk CSV into a gsis_id ->
 // sleeper_id map. Bounded by MAX_CROSSWALK_ROWS; rows missing either id are
 // skipped (and counted), not treated as an error — the file legitimately
@@ -99,18 +106,23 @@ export function parseCrosswalk(csvText: string): CrosswalkResult {
 
   const byGsis = new Map<string, string>();
   let skipped = 0;
+  let mapped = 0;
   for (const line of lines.slice(1)) {
     const fields = parseCSVLine(line);
     const gsis = fields[gsisIdx];
     const sleeper = fields[sleeperIdx];
-    if (!gsis || !sleeper) {
+    if (!isUsableId(gsis) || !isUsableId(sleeper)) {
       skipped += 1;
       continue;
     }
+    invariant(gsis !== undefined && sleeper !== undefined, 'usable id unexpectedly undefined');
     byGsis.set(gsis, sleeper);
+    mapped += 1;
   }
 
-  invariant(byGsis.size + skipped === lines.length - 1, 'crosswalk row accounting did not add up');
+  // Count rows PROCESSED (mapped), not the map's final size: the live file has
+  // duplicate gsis_ids that legitimately overwrite, so byGsis.size < mapped.
+  invariant(mapped + skipped === lines.length - 1, 'crosswalk row accounting did not add up');
 
   return { ok: true, value: { byGsis, skipped } };
 }
