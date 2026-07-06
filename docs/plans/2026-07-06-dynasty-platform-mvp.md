@@ -445,6 +445,11 @@ Slow drafts (pick clock in hours, push-notified) then live rooms on Supabase Rea
 
 ## Standing risks
 
+0. **Email deliverability on Microsoft inboxes** (observed Jul 6): magic links from
+   mail.myffdynasty.app land in Hotmail/Outlook Junk — new domain, no reputation.
+   Phase 9 migration instructions must tell members to check Junk and safe-sender
+   the domain; consider DMARC tightening + branded templates in Phase 8.
+
 1. **Sleeper stats endpoint is unofficial** — mitigated by nflverse reconciliation + Phase 4 fallback; worst case is next-day scoring, allowed by the seed.
 2. **Solo-dev bus factor during the season** — mitigate by boring infra (managed everything), `npm run check` discipline, and the Phase 9 shadow-validation habit continuing through September.
 3. **Free-tier limits** (Supabase pauses inactive projects; Actions cron jitter) — acceptable at one-league scale; revisit if outside leagues join (seed says growth is non-goal for 2026).

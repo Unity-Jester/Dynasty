@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
-  pgTable, uuid, text, integer, timestamp, jsonb, uniqueIndex,
+  pgTable, uuid, text, integer, timestamp, jsonb, uniqueIndex, index,
 } from 'drizzle-orm/pg-core';
 
 // Mirrors Supabase auth.users (1:1); rows created by a claim/signup action.
@@ -54,4 +54,38 @@ export const teams = pgTable('teams', {
   uniqueIndex('teams_league_owner_uq')
     .on(t.leagueId, t.ownerId)
     .where(sql`${t.ownerId} IS NOT NULL`),
+]);
+
+// NFL player universe, synced daily from Sleeper (/api/jobs/sync-players).
+// sleeper_id is the natural PK — it's the join key for stats, rosters, and
+// the Phase 3 importer alike.
+export const players = pgTable('players', {
+  sleeperId: text('sleeper_id').primaryKey(),
+  fullName: text('full_name').notNull(),
+  position: text('position').notNull(), // QB/RB/WR/TE/K/DEF — filtered at sync time
+  nflTeam: text('nfl_team'), // null = free agent
+  status: text('status').notNull().default('unknown'), // Active/Injured Reserve/...
+  injuryStatus: text('injury_status'),
+  yearsExp: integer('years_exp'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('players_position_idx').on(t.position),
+]);
+
+// A player's membership on a team. leagueId is deliberately denormalized from
+// teams so the DB itself can enforce "one player per league" — the same
+// index-as-invariant pattern as teams_league_owner_uq.
+export const rosterMembers = pgTable('roster_members', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  leagueId: uuid('league_id').notNull().references(() => leagues.id),
+  teamId: uuid('team_id').notNull().references(() => teams.id),
+  playerId: text('player_id').notNull().references(() => players.sleeperId),
+  status: text('status', { enum: ['active', 'taxi', 'ir'] }).notNull().default('active'),
+  acquiredVia: text('acquired_via', {
+    enum: ['import', 'draft', 'waiver', 'free_agent', 'trade', 'commish'],
+  }).notNull(),
+  acquiredAt: timestamp('acquired_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('roster_members_league_player_uq').on(t.leagueId, t.playerId),
+  index('roster_members_team_idx').on(t.teamId),
 ]);

@@ -170,7 +170,7 @@ export default async function LeagueHomePage({ params }: { params: { leagueId: s
     <div className="space-y-8">
       <LeagueHeader leagueName={league.name} season={season} />
       <SeasonSettingsSection season={season} parsedSettings={parsedSettings} />
-      <TeamsGrid teams={teamCards} />
+      <TeamsGrid leagueId={league.id} teams={teamCards} />
       {isCreator && <InvitePanel teams={unclaimedInvites} />}
     </div>
   );

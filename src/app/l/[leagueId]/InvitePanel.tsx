@@ -1,3 +1,5 @@
+import CopyInviteButton from './CopyInviteButton';
+
 type UnclaimedTeam = { id: string; name: string; inviteUrl: string };
 
 // Visible ONLY to the league creator — the caller (page.tsx) must gate on
@@ -21,6 +23,7 @@ export default function InvitePanel({ teams }: { teams: UnclaimedTeam[] }) {
             <code className="flex-1 min-w-0 truncate px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-gray-300">
               {team.inviteUrl}
             </code>
+            <CopyInviteButton url={team.inviteUrl} />
           </li>
         ))}
       </ul>

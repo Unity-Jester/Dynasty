@@ -154,6 +154,13 @@ export default function LeaguePicker() {
       <p className="text-xs text-gray-600 mt-8 text-center">
         Find your League ID in the Sleeper app under League Settings.
       </p>
+
+      <p className="text-sm text-gray-400 mt-6 text-center border-t border-white/10 pt-6">
+        League hosted on Dynasty?{' '}
+        <a href="/login" className="text-gold-gradient font-medium hover:brightness-110">
+          Sign in to your league
+        </a>
+      </p>
     </div>
   );
 }
