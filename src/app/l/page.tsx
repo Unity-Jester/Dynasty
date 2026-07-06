@@ -154,12 +154,20 @@ function EmptyState() {
         Create a hosted dynasty league to generate teams and invite links for
         your league mates.
       </p>
-      <Link
-        href="/l/new"
-        className="inline-block px-4 py-3 bg-gradient-to-b from-gold-400 to-gold-600 text-sleeper-dark font-semibold rounded-xl hover:shadow-gold-glow hover:brightness-110 transition-all"
-      >
-        Create league
-      </Link>
+      <div className="flex items-center justify-center gap-3 flex-wrap">
+        <Link
+          href="/l/new"
+          className="inline-block px-4 py-3 bg-gradient-to-b from-gold-400 to-gold-600 text-sleeper-dark font-semibold rounded-xl hover:shadow-gold-glow hover:brightness-110 transition-all"
+        >
+          Create league
+        </Link>
+        <Link
+          href="/l/import"
+          className="inline-block px-4 py-3 bg-white/[0.04] border border-white/10 text-white font-medium rounded-xl hover:bg-white/[0.06] transition-colors"
+        >
+          Import from Sleeper
+        </Link>
+      </div>
     </div>
   );
 }
@@ -184,12 +192,20 @@ export default async function MyLeaguesPage() {
           </h1>
           <div className="keyline mt-3" />
         </div>
-        <Link
-          href="/l/new"
-          className="px-4 py-2.5 bg-gradient-to-b from-gold-400 to-gold-600 text-sleeper-dark font-semibold rounded-xl hover:shadow-gold-glow hover:brightness-110 transition-all"
-        >
-          Create league
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/l/import"
+            className="px-4 py-2.5 bg-white/[0.04] border border-white/10 text-white font-medium rounded-xl hover:bg-white/[0.06] transition-colors"
+          >
+            Import from Sleeper
+          </Link>
+          <Link
+            href="/l/new"
+            className="px-4 py-2.5 bg-gradient-to-b from-gold-400 to-gold-600 text-sleeper-dark font-semibold rounded-xl hover:shadow-gold-glow hover:brightness-110 transition-all"
+          >
+            Create league
+          </Link>
+        </div>
       </div>
 
       {leagueCards.length === 0 ? (
