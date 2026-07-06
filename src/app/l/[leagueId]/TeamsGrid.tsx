@@ -1,8 +1,10 @@
+import Link from 'next/link';
+
 type TeamCard = { id: string; name: string; ownerDisplayName: string | null };
 
-function TeamCardView({ team }: { team: TeamCard }) {
+function TeamCardView({ leagueId, team }: { leagueId: string; team: TeamCard }) {
   return (
-    <div className="panel p-4">
+    <Link href={`/l/${leagueId}/roster/${team.id}`} className="panel panel-hover p-4 block">
       <p className="text-white font-medium truncate">{team.name}</p>
       {team.ownerDisplayName ? (
         <p className="text-sm text-gray-400 mt-1 truncate">{team.ownerDisplayName}</p>
@@ -11,17 +13,17 @@ function TeamCardView({ team }: { team: TeamCard }) {
           Unclaimed
         </span>
       )}
-    </div>
+    </Link>
   );
 }
 
-export default function TeamsGrid({ teams }: { teams: TeamCard[] }) {
+export default function TeamsGrid({ leagueId, teams }: { leagueId: string; teams: TeamCard[] }) {
   return (
     <section>
       <h2 className="font-display text-lg text-white mb-3">Teams</h2>
       <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
         {teams.map((team) => (
-          <TeamCardView key={team.id} team={team} />
+          <TeamCardView key={team.id} leagueId={leagueId} team={team} />
         ))}
       </div>
     </section>
