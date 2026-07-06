@@ -43,7 +43,10 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (isGuardedPath(request.nextUrl.pathname) && !user) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    // Carry the intended destination through login; safeNextPath re-validates
+    // it at both embed and callback boundaries before any redirect happens.
+    const next = encodeURIComponent(request.nextUrl.pathname + request.nextUrl.search);
+    return NextResponse.redirect(new URL(`/login?next=${next}`, request.url));
   }
 
   return response;
