@@ -48,4 +48,10 @@ export const teams = pgTable('teams', {
   uniqueIndex('teams_invite_token_uq')
     .on(t.inviteToken)
     .where(sql`${t.inviteToken} IS NOT NULL`),
+  // One franchise per owner per league. This is the real invariant behind
+  // claimTeam's user_has_team rule — the action's pre-read count is advisory
+  // UX only; concurrent claims are settled here (0003_one-team-per-owner.sql).
+  uniqueIndex('teams_league_owner_uq')
+    .on(t.leagueId, t.ownerId)
+    .where(sql`${t.ownerId} IS NOT NULL`),
 ]);

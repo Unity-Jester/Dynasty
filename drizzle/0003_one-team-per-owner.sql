@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "teams_league_owner_uq" ON "teams" USING btree ("league_id","owner_id") WHERE "teams"."owner_id" IS NOT NULL;

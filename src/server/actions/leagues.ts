@@ -6,7 +6,7 @@ import { getDb } from '@/server/db';
 import { leagues, profiles, seasons, teams } from '@/server/schema';
 import { createSupabaseServerClient } from '@/server/supabase';
 import { LeagueSettingsSchema, type LeagueSettings } from '@/engine/settings';
-import { canClaimTeam, generateInviteToken } from '@/engine/invites';
+import { canClaimTeam, generateInviteToken, type ClaimError } from '@/engine/invites';
 import { displayNameFromEmail } from '@/lib/auth/displayName';
 import { invariant } from '@/lib/invariant';
 
@@ -15,8 +15,10 @@ const MAX_TEAM_COUNT = 32;
 // Bounded read: a user should own at most one team per league, but cap the
 // count query defensively rather than trusting the table (Rule 3).
 const MAX_USER_TEAMS_SCAN = MAX_TEAM_COUNT;
-// Postgres unique-violation SQLSTATE; a FK violation on created_by uses 23503.
+// Postgres SQLSTATEs we branch on: FK violation (created_by/owner_id) and
+// unique violation (teams_league_owner_uq settling concurrent claims).
 const PG_FK_VIOLATION = '23503';
+const PG_UNIQUE_VIOLATION = '23505';
 
 type AuthedUser = { id: string; email: string };
 
@@ -42,13 +44,12 @@ export type CreateLeagueResult =
   | { ok: true; leagueId: string }
   | { ok: false; error: 'unauthenticated' | 'invalid_input' | 'no_profile' };
 
-function isFkViolation(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: unknown }).code === PG_FK_VIOLATION
-  );
+function pgErrorCode(error: unknown): string | null {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === 'string' ? code : null;
+  }
+  return null;
 }
 
 function buildTeamRows(leagueId: string, settings: LeagueSettings) {
@@ -89,7 +90,7 @@ export async function createLeague(input: unknown): Promise<CreateLeagueResult> 
     });
     return { ok: true, leagueId };
   } catch (error) {
-    if (isFkViolation(error)) {
+    if (pgErrorCode(error) === PG_FK_VIOLATION) {
       return { ok: false, error: 'no_profile' };
     }
     throw error;
@@ -100,18 +101,13 @@ export async function createLeague(input: unknown): Promise<CreateLeagueResult> 
 
 const ClaimTeamInput = z.object({ token: z.string().min(1).max(200) });
 
+// Tied to the engine union so the action can't drift from canClaimTeam's
+// vocabulary; only transport-level failures are added here.
 export type ClaimResult =
   | { ok: true; leagueId: string }
   | {
       ok: false;
-      error:
-        | 'unauthenticated'
-        | 'invalid_input'
-        | 'invalid_token'
-        | 'already_claimed'
-        | 'no_token'
-        | 'token_mismatch'
-        | 'user_has_team';
+      error: ClaimError | 'unauthenticated' | 'invalid_input' | 'invalid_token';
     };
 
 async function ensureProfile(user: AuthedUser): Promise<void> {
@@ -141,10 +137,9 @@ export async function claimTeam(input: unknown): Promise<ClaimResult> {
     return { ok: false, error: 'invalid_token' };
   }
 
-  // First-time invitees have no profile row yet; seed one before the FK-bound
-  // UPDATE (same pattern as the auth callback).
-  await ensureProfile(user);
-
+  // Advisory pre-read for friendly UX only: it catches the common case before
+  // any write, but concurrent claims can slip past it. The enforced invariant
+  // is the teams_league_owner_uq partial unique index, handled below.
   const owned = await db
     .select({ id: teams.id })
     .from(teams)
@@ -161,15 +156,30 @@ export async function claimTeam(input: unknown): Promise<ClaimResult> {
     return { ok: false, error: check.error };
   }
 
+  // The claim is a meaningful action, so only now seed a profile row for
+  // first-time invitees (FK target for owner_id; same pattern as the auth
+  // callback). Failed claim attempts above never create profiles.
+  await ensureProfile(user);
+
   // Race guard: only claim if still unclaimed. If another request won, the
-  // guarded WHERE matches zero rows and we report already_claimed.
-  const updated = await db
-    .update(teams)
-    .set({ ownerId: user.id, inviteToken: sql`NULL` })
-    .where(and(eq(teams.id, team.id), isNull(teams.ownerId)))
-    .returning({ id: teams.id });
-  if (updated.length === 0) {
-    return { ok: false, error: 'already_claimed' };
+  // guarded WHERE matches zero rows and we report already_claimed. Note the
+  // WHERE guard protects single-row invariants only; multi-row invariants
+  // (one team per owner per league) need a DB constraint — that's
+  // teams_league_owner_uq, whose violation we map to user_has_team.
+  try {
+    const updated = await db
+      .update(teams)
+      .set({ ownerId: user.id, inviteToken: sql`NULL` })
+      .where(and(eq(teams.id, team.id), isNull(teams.ownerId)))
+      .returning({ id: teams.id });
+    if (updated.length === 0) {
+      return { ok: false, error: 'already_claimed' };
+    }
+  } catch (error) {
+    if (pgErrorCode(error) === PG_UNIQUE_VIOLATION) {
+      return { ok: false, error: 'user_has_team' };
+    }
+    throw error;
   }
   return { ok: true, leagueId: team.leagueId };
 }
