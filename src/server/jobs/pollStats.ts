@@ -130,6 +130,13 @@ async function fetchStatsInputs(
 }
 
 export async function pollStats(season?: number, week?: number): Promise<PollResult> {
+  // Both-or-neither is the contract: a partial pair was previously silently
+  // dropped in favor of live NFL-state auto-resolution — a trap for direct
+  // in-process callers (e.g. Phase 5 backfills). Fail loudly instead.
+  invariant(
+    (season === undefined) === (week === undefined),
+    'pollStats requires both season and week, or neither',
+  );
   if (season !== undefined && week !== undefined) {
     assertSeasonWeekWindow(season, week, 'requested');
   }
