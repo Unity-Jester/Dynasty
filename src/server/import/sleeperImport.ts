@@ -74,6 +74,19 @@ async function fetchKnownPlayerIds(): Promise<Set<string>> {
   return new Set(rows.map((r) => r.sleeperId));
 }
 
+// Tags a fetch failure with which endpoint threw. The shared Sleeper fetchers
+// (src/lib/sleeper.ts) report only status text — identical across endpoints —
+// and their error text can't change without risking the analytics pages'
+// catch paths, so the labeling lives here. Pure glue: catch, prefix, rethrow.
+async function labeled<T>(label: string, promise: Promise<T>): Promise<T> {
+  try {
+    return await promise;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown error';
+    throw new Error(`${label}: ${message}`);
+  }
+}
+
 // Fetches all four Sleeper payloads plus the player universe. Any endpoint
 // failure surfaces as fetch_failed naming which call threw (the fetchers throw
 // on non-OK), so the caller never proceeds on partial data.
@@ -81,11 +94,11 @@ async function fetchAll(
   sleeperLeagueId: string,
 ): Promise<{ ok: true; value: FetchedPayloads } | { ok: false; endpoint: string }> {
   try {
-    const rawLeague = await getLeague(sleeperLeagueId);
-    const rawUsers = await getLeagueUsers(sleeperLeagueId);
-    const rawRosters = await getLeagueRosters(sleeperLeagueId);
-    const rawTradedPicks = await getTradedPicks(sleeperLeagueId);
-    const knownPlayerIds = await fetchKnownPlayerIds();
+    const rawLeague = await labeled('league', getLeague(sleeperLeagueId));
+    const rawUsers = await labeled('users', getLeagueUsers(sleeperLeagueId));
+    const rawRosters = await labeled('rosters', getLeagueRosters(sleeperLeagueId));
+    const rawTradedPicks = await labeled('traded picks', getTradedPicks(sleeperLeagueId));
+    const knownPlayerIds = await labeled('player universe', fetchKnownPlayerIds());
     return { ok: true, value: { rawLeague, rawUsers, rawRosters, rawTradedPicks, knownPlayerIds } };
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'unknown fetch error';
