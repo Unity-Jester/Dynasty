@@ -2,14 +2,17 @@
 
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
+import { normalizeLoginCode } from '@/lib/auth/loginCode';
 import { safeNextPath } from '@/lib/auth/nextPath';
 import { getSiteOrigin } from '@/lib/siteOrigin';
+import { ensureProfileForUser } from '@/server/auth/profile';
 import { createSupabaseServerClient } from '@/server/supabase';
 
 export type AuthActionResult = { ok: true } | { ok: false; error: string };
 
 const emailSchema = z.string().email().max(254);
 const nextSchema = z.string().max(2048).nullish();
+const codeSchema = z.string().regex(/^\d{6}$/);
 
 // Builds the post-auth callback URL, carrying the sanitized return path.
 // safeNextPath runs here AND in the callback route - both boundaries.
@@ -37,6 +40,42 @@ export async function sendMagicLink(formData: FormData): Promise<AuthActionResul
     return { ok: false, error: error.message };
   }
   return { ok: true };
+}
+
+// Server action backing the login page's "Sign in with code" button.
+// Verifies the 6-digit OTP that signInWithOtp emailed alongside the magic
+// link ({{ .Token }} in the Supabase template). Establishes the session
+// directly - no PKCE cookie, so it works in any browser and survives
+// link-prefetching mail scanners. Redirects on success; returns a result
+// object only on failure (same convention as signInWithGoogle).
+export async function verifyLoginCode(formData: FormData): Promise<AuthActionResult> {
+  const rawEmail = formData.get('email');
+  const email = emailSchema.safeParse(typeof rawEmail === 'string' ? rawEmail : '');
+  if (!email.success) {
+    return { ok: false, error: 'Enter a valid email address.' };
+  }
+
+  const code = codeSchema.safeParse(normalizeLoginCode(formData.get('code')) ?? '');
+  if (!code.success) {
+    return { ok: false, error: 'Enter the 6-digit code from the email.' };
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase.auth.verifyOtp({
+    email: email.data,
+    token: code.data,
+    type: 'email',
+  });
+
+  // Fail loud on a userless success - same reasoning as the callback route.
+  if (error || !data.user) {
+    return { ok: false, error: 'That code is invalid or expired. Request a new one.' };
+  }
+
+  await ensureProfileForUser(data.user);
+
+  const parsedNext = nextSchema.safeParse(formData.get('next'));
+  redirect(safeNextPath(parsedNext.success ? parsedNext.data : null));
 }
 
 // Server action backing the login page's "Continue with Google" button.

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/server/db';
-import { profiles } from '@/server/schema';
+import { ensureProfileForUser } from '@/server/auth/profile';
 import { createSupabaseServerClient } from '@/server/supabase';
-import { displayNameFromEmail } from '@/lib/auth/displayName';
 import { safeNextPath } from '@/lib/auth/nextPath';
 
 // Completes the magic-link / OAuth flow: exchanges the auth code for a
@@ -39,10 +37,7 @@ export async function GET(request: NextRequest) {
     return loginError('auth');
   }
 
-  await getDb()
-    .insert(profiles)
-    .values({ id: user.id, displayName: displayNameFromEmail(user.email ?? '') })
-    .onConflictDoNothing({ target: profiles.id });
+  await ensureProfileForUser(user);
 
   return NextResponse.redirect(new URL(nextPath, request.url));
 }
