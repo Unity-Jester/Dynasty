@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   pgTable, uuid, text, integer, timestamp, jsonb, uniqueIndex,
 } from 'drizzle-orm/pg-core';
@@ -41,4 +42,10 @@ export const teams = pgTable('teams', {
   ownerId: uuid('owner_id').references(() => profiles.id), // null until claimed
   inviteToken: text('invite_token'), // single-use claim token
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  // Active invite tokens must be globally unique; claimed teams have NULL
+  // tokens, so this is a partial index (0002_invite-token-unique.sql).
+  uniqueIndex('teams_invite_token_uq')
+    .on(t.inviteToken)
+    .where(sql`${t.inviteToken} IS NOT NULL`),
+]);

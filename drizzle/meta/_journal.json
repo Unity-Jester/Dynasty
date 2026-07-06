@@ -15,6 +15,13 @@
       "when": 1783354011689,
       "tag": "0001_enable-rls",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783355008542,
+      "tag": "0002_invite-token-unique",
+      "breakpoints": true
     }
   ]
 }
