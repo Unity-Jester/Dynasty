@@ -17,7 +17,15 @@ export const leagues = pgTable('leagues', {
   createdBy: uuid('created_by').notNull().references(() => profiles.id),
   sleeperLeagueId: text('sleeper_league_id'), // set when imported
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  // A Sleeper league can only be imported into one Dynasty league — this is
+  // idempotency-as-invariant, making re-importing the same league a DB-level
+  // impossibility rather than an application-level check. Partial index
+  // because most rows (native, non-imported leagues) have a NULL here.
+  uniqueIndex('leagues_sleeper_league_uq')
+    .on(t.sleeperLeagueId)
+    .where(sql`${t.sleeperLeagueId} IS NOT NULL`),
+]);
 
 export const seasons = pgTable('seasons', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -88,4 +96,19 @@ export const rosterMembers = pgTable('roster_members', {
 }, (t) => [
   uniqueIndex('roster_members_league_player_uq').on(t.leagueId, t.playerId),
   index('roster_members_team_idx').on(t.teamId),
+]);
+
+// Tradeable future rookie picks. The full base is materialized at import
+// (every team owns its own next-3-years picks); trades reassign currentTeamId.
+export const pickAssets = pgTable('pick_assets', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  leagueId: uuid('league_id').notNull().references(() => leagues.id),
+  season: integer('season').notNull(), // draft year, e.g. 2027
+  round: integer('round').notNull(),
+  originalTeamId: uuid('original_team_id').notNull().references(() => teams.id),
+  currentTeamId: uuid('current_team_id').notNull().references(() => teams.id),
+}, (t) => [
+  // One asset per (league, year, round, original owner) — the pick's identity.
+  uniqueIndex('pick_assets_identity_uq').on(t.leagueId, t.season, t.round, t.originalTeamId),
+  index('pick_assets_current_team_idx').on(t.currentTeamId),
 ]);
