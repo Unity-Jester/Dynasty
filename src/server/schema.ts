@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
-  pgTable, uuid, text, integer, timestamp, jsonb, uniqueIndex,
+  pgTable, uuid, text, integer, timestamp, jsonb, uniqueIndex, index,
 } from 'drizzle-orm/pg-core';
 
 // Mirrors Supabase auth.users (1:1); rows created by a claim/signup action.
@@ -54,4 +54,20 @@ export const teams = pgTable('teams', {
   uniqueIndex('teams_league_owner_uq')
     .on(t.leagueId, t.ownerId)
     .where(sql`${t.ownerId} IS NOT NULL`),
+]);
+
+// NFL player universe, synced daily from Sleeper (/api/jobs/sync-players).
+// sleeper_id is the natural PK — it's the join key for stats, rosters, and
+// the Phase 3 importer alike.
+export const players = pgTable('players', {
+  sleeperId: text('sleeper_id').primaryKey(),
+  fullName: text('full_name').notNull(),
+  position: text('position').notNull(), // QB/RB/WR/TE/K/DEF — filtered at sync time
+  nflTeam: text('nfl_team'), // null = free agent
+  status: text('status').notNull().default('unknown'), // Active/Injured Reserve/...
+  injuryStatus: text('injury_status'),
+  yearsExp: integer('years_exp'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('players_position_idx').on(t.position),
 ]);

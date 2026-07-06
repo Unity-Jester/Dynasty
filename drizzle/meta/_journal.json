@@ -29,6 +29,20 @@
       "when": 1783355620801,
       "tag": "0003_one-team-per-owner",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783360475640,
+      "tag": "0004_adorable_silvermane",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783360497446,
+      "tag": "0005_players-rls",
+      "breakpoints": true
     }
   ]
 }
