@@ -1,0 +1,18 @@
+# Requires repo secrets APP_URL and CRON_SECRET. Inert until the app is
+# deployed (Phase 8/9) — until then, trigger a sync locally via curl:
+#   curl -X POST -H "Authorization: Bearer $CRON_SECRET" \
+#     http://localhost:3000/api/jobs/sync-players
+name: sync-players
+on:
+  schedule:
+    - cron: '0 9 * * *' # daily, 09:00 UTC (~4am ET)
+  workflow_dispatch: {}
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger player sync
+        run: |
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/jobs/sync-players"
