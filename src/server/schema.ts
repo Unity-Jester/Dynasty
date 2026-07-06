@@ -112,3 +112,19 @@ export const pickAssets = pgTable('pick_assets', {
   uniqueIndex('pick_assets_identity_uq').on(t.leagueId, t.season, t.round, t.originalTeamId),
   index('pick_assets_current_team_idx').on(t.currentTeamId),
 ]);
+
+// One row per player-week. `stats` is the raw numeric map from the source;
+// scoring reads keys per-league at compute time. source='nflverse' rows are
+// corrections and are never overwritten by Sleeper polls.
+export const statLines = pgTable('stat_lines', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  playerId: text('player_id').notNull().references(() => players.sleeperId),
+  season: integer('season').notNull(),
+  week: integer('week').notNull(),
+  stats: jsonb('stats').notNull(),
+  source: text('source', { enum: ['sleeper', 'nflverse'] }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('stat_lines_player_week_uq').on(t.playerId, t.season, t.week),
+  index('stat_lines_season_week_idx').on(t.season, t.week),
+]);
