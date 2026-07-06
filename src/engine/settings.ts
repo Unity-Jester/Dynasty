@@ -20,7 +20,8 @@ const MAX_SLOT_COUNT = 40;
 
 const RosterSlotEntry = z.object({
   slot: z.enum(ROSTER_SLOTS),
-  count: z.number().int().min(0).max(MAX_SLOT_COUNT),
+  // count >= 1: omit the entry instead of count 0 (one canonical representation)
+  count: z.number().int().min(1).max(MAX_SLOT_COUNT),
 });
 
 const Bonus = z.object({
@@ -34,15 +35,17 @@ const Scoring = z.object({
   bonuses: z.array(Bonus).max(50),
 });
 
+const TIEBREAKER_MODES = ['reverse_standings', 'rolling'] as const;
+
 const Waivers = z.discriminatedUnion('mode', [
   z.object({
     mode: z.literal('faab'),
     budget: z.number().int().positive().max(10_000),
-    tiebreaker: z.enum(['reverse_standings', 'rolling']),
+    tiebreaker: z.enum(TIEBREAKER_MODES),
   }),
   z.object({
     mode: z.literal('priority'),
-    order: z.enum(['reverse_standings', 'rolling']),
+    order: z.enum(TIEBREAKER_MODES),
   }),
 ]);
 
@@ -52,6 +55,8 @@ const Trades = z.object({
   deadlineWeek: z.number().int().min(1).max(18).nullable(),
 });
 
+// TODO(Phase 8): cross-field validation — playoffs.teams <= teamCount, and the
+// bracket must fit between startWeek and week 18.
 const Playoffs = z.object({
   teams: z.number().int().min(2).max(16),
   startWeek: z.number().int().min(14).max(17),
@@ -60,7 +65,13 @@ const Playoffs = z.object({
 export const LeagueSettingsSchema = z
   .object({
     teamCount: z.number().int().min(4).max(32),
-    rosterSlots: z.array(RosterSlotEntry).max(ROSTER_SLOTS.length),
+    rosterSlots: z
+      .array(RosterSlotEntry)
+      .max(ROSTER_SLOTS.length)
+      .refine(
+        (slots) => new Set(slots.map((s) => s.slot)).size === slots.length,
+        { message: 'Roster slots must be unique; merge duplicate entries' },
+      ),
     scoring: Scoring,
     waivers: Waivers,
     trades: Trades,
