@@ -3,6 +3,10 @@ import { z } from 'zod';
 import { invariant } from '@/lib/invariant';
 import { reconcileStats } from '@/server/jobs/reconcileStats';
 
+// DEPLOY TODO (phase review, Jul 2026): 60s is plausibly tight for the
+// consolidated-file path (32MB / 134k rows + per-row correction UPDATEs).
+// Before un-inerting the cron: raise maxDuration per the hosting plan's
+// ceiling and/or batch applyUpdates in reconcileStats into bulk statements.
 export const maxDuration = 60;
 
 // Unlike poll-stats, BOTH season and week are REQUIRED: a correction job never

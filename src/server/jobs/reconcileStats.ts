@@ -291,6 +291,9 @@ function reconcileRows(
       skippedUnknown += 1;
       continue;
     }
+    // Shape note for scoring consumers: nflverse-origin rows carry explicit
+    // zeros for mapped keys, while Sleeper-origin rows omit absent stats.
+    // Equivalent under absent-means-zero reads; do not diff shapes naively.
     inserts.push({ playerId: sleeperId, merged: corrected });
   }
 
