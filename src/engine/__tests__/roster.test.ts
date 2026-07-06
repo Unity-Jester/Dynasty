@@ -67,4 +67,14 @@ describe('validateRosterCounts', () => {
       detail: '26 active players exceeds the 25-player active pool',
     });
   });
+
+  // Review follow-up: when total capacity is the trigger (33 > 32) but the
+  // active pool is NOT exceeded (25 <= 25), the detail must describe roster
+  // capacity, not falsely blame the active pool.
+  it('over_capacity detail reports roster capacity when total is the trigger', () => {
+    const r = validateRosterCounts(DEFAULT_SUPERFLEX_PPR, members(25, 8, 0));
+    expect(r).toMatchObject({ ok: false, error: 'over_capacity' });
+    expect(r).toMatchObject({ detail: expect.stringMatching(/roster capacity/) });
+    expect(r).not.toMatchObject({ detail: expect.stringMatching(/active pool/) });
+  });
 });

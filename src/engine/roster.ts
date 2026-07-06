@@ -83,11 +83,14 @@ export function validateRosterCounts(
   const totalMembers = active + taxi + ir;
 
   if (totalMembers > capacity || active > activePool) {
-    return {
-      ok: false,
-      error: 'over_capacity',
-      detail: `${active} active players exceeds the ${activePool}-player active pool`,
-    };
+    // Same error code either way (precedence contract), but describe the
+    // actual trigger: total-roster overflow can occur with a legal active
+    // count (e.g. 25 active + 8 taxi = 33 > 32 while 25 <= 25).
+    const detail =
+      totalMembers > capacity
+        ? `${totalMembers} rostered players exceeds the ${capacity}-player roster capacity`
+        : `${active} active players exceeds the ${activePool}-player active pool`;
+    return { ok: false, error: 'over_capacity', detail };
   }
   if (taxi > taxiCap) {
     return {
