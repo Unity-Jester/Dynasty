@@ -71,3 +71,21 @@ export const players = pgTable('players', {
 }, (t) => [
   index('players_position_idx').on(t.position),
 ]);
+
+// A player's membership on a team. leagueId is deliberately denormalized from
+// teams so the DB itself can enforce "one player per league" — the same
+// index-as-invariant pattern as teams_league_owner_uq.
+export const rosterMembers = pgTable('roster_members', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  leagueId: uuid('league_id').notNull().references(() => leagues.id),
+  teamId: uuid('team_id').notNull().references(() => teams.id),
+  playerId: text('player_id').notNull().references(() => players.sleeperId),
+  status: text('status', { enum: ['active', 'taxi', 'ir'] }).notNull().default('active'),
+  acquiredVia: text('acquired_via', {
+    enum: ['import', 'draft', 'waiver', 'free_agent', 'trade', 'commish'],
+  }).notNull(),
+  acquiredAt: timestamp('acquired_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('roster_members_league_player_uq').on(t.leagueId, t.playerId),
+  index('roster_members_team_idx').on(t.teamId),
+]);
