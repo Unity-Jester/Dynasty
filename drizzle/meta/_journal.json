@@ -57,6 +57,20 @@
       "when": 1783361728383,
       "tag": "0007_roster-members-rls",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783365125517,
+      "tag": "0008_needy_omega_red",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1783365132812,
+      "tag": "0009_pick-assets-rls",
+      "breakpoints": true
     }
   ]
 }

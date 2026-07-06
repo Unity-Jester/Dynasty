@@ -5,6 +5,8 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '@/server/db';
 import { profiles, rosterMembers, teams, players } from '@/server/schema';
 import RosterSection, { RosterPlayerRow } from './RosterSection';
+import PicksSection from './PicksSection';
+import { fetchHeldPicks, fetchTradedAwayPicks } from './picksQueries';
 
 // A roster is capped by league settings (max 32 teams x realistic squad
 // sizes); 60 leaves headroom without being unbounded (Rule 3).
@@ -135,9 +137,11 @@ export default async function TeamRosterPage({
     notFound();
   }
 
-  const [ownerDisplayName, memberRows] = await Promise.all([
+  const [ownerDisplayName, memberRows, heldPicks, tradedAwayPicks] = await Promise.all([
     fetchOwnerName(team.ownerId),
     fetchRosterMembers(team.id),
+    fetchHeldPicks(team.id),
+    fetchTradedAwayPicks(team.id),
   ]);
 
   const grouped = groupByStatus(memberRows);
@@ -154,6 +158,7 @@ export default async function TeamRosterPage({
           <RosterSection title="IR" players={grouped.ir} />
         </div>
       )}
+      <PicksSection held={heldPicks} tradedAway={tradedAwayPicks} />
     </div>
   );
 }

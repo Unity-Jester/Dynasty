@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { sendMagicLink, signInWithGoogle } from '@/server/actions/auth';
+import CodeEntryForm from './CodeEntryForm';
 
 type Status = { kind: 'idle' } | { kind: 'sent' } | { kind: 'error'; message: string };
 
@@ -28,6 +29,7 @@ function LoginForm() {
     statusFromQueryError(searchParams.get('error'))
   );
   const [loading, setLoading] = useState(false);
+  const [sentEmail, setSentEmail] = useState<string | null>(null);
   // Documented env flag (Rule 8): flip on after enabling the Google provider
   // in the Supabase dashboard. Inlined at build time for client components.
   const googleEnabled = process.env.NEXT_PUBLIC_AUTH_GOOGLE_ENABLED === 'true';
@@ -37,6 +39,8 @@ function LoginForm() {
     const result = await sendMagicLink(formData);
     setLoading(false);
     if (result.ok) {
+      const email = formData.get('email');
+      setSentEmail(typeof email === 'string' ? email : null);
       setStatus({ kind: 'sent' });
     } else {
       setStatus({ kind: 'error', message: result.error });
@@ -106,9 +110,12 @@ function LoginForm() {
       </div>
 
       {status.kind === 'sent' && (
-        <p className="text-sleeper-green text-sm mt-4 text-center">
-          Check your email for a magic link.
-        </p>
+        <>
+          <p className="text-sleeper-green text-sm mt-4 text-center">
+            Check your email for a magic link.
+          </p>
+          {sentEmail && <CodeEntryForm email={sentEmail} next={next} />}
+        </>
       )}
       {status.kind === 'error' && (
         <p className="text-sleeper-red text-sm mt-4 text-center">{status.message}</p>

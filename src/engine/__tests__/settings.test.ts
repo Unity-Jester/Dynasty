@@ -4,6 +4,7 @@ import {
   DEFAULT_SUPERFLEX_PPR,
   starterSlotCount,
 } from '../settings';
+import leagueFixture from '../import/__fixtures__/league.json';
 
 describe('LeagueSettingsSchema', () => {
   it('accepts the default 12-team Superflex PPR preset', () => {
@@ -82,5 +83,26 @@ describe('LeagueSettingsSchema', () => {
     });
     expect(LeagueSettingsSchema.safeParse(withThreshold(0)).success).toBe(false);
     expect(LeagueSettingsSchema.safeParse(withThreshold(-100)).success).toBe(false);
+  });
+
+  it('accepts every nonzero scoring key from the real-league import fixture', () => {
+    const scoringSettings = leagueFixture.scoring_settings as Record<string, number>;
+    const nonzeroKeys = Object.entries(scoringSettings)
+      .filter(([, value]) => value !== 0)
+      .map(([key]) => key);
+    // Sanity check: the fixture must actually exercise a meaningful set of keys,
+    // otherwise this test would pass vacuously.
+    expect(nonzeroKeys.length).toBeGreaterThan(30);
+
+    const rules: Record<string, number> = {};
+    for (const key of nonzeroKeys) {
+      rules[key] = scoringSettings[key];
+    }
+    const candidate = {
+      ...DEFAULT_SUPERFLEX_PPR,
+      scoring: { rules, bonuses: [] },
+    };
+    const parsed = LeagueSettingsSchema.safeParse(candidate);
+    expect(parsed.success).toBe(true);
   });
 });

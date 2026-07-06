@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { desc, eq, inArray } from 'drizzle-orm';
 import { getDb } from '@/server/db';
@@ -13,13 +14,25 @@ import SettingsSummary from './SettingsSummary';
 // see engine/settings.ts); 40 leaves headroom without being unbounded.
 const MAX_TEAMS = 40;
 
-type LeagueRow = { id: string; name: string; status: string; createdBy: string };
+type LeagueRow = {
+  id: string;
+  name: string;
+  status: string;
+  createdBy: string;
+  sleeperLeagueId: string | null;
+};
 type SeasonRow = { id: string; year: number; phase: string; currentWeek: number; settings: unknown };
 type TeamRow = { id: string; name: string; ownerId: string | null; inviteToken: string | null };
 
 async function fetchLeague(leagueId: string): Promise<LeagueRow | null> {
   const [row] = await getDb()
-    .select({ id: leagues.id, name: leagues.name, status: leagues.status, createdBy: leagues.createdBy })
+    .select({
+      id: leagues.id,
+      name: leagues.name,
+      status: leagues.status,
+      createdBy: leagues.createdBy,
+      sleeperLeagueId: leagues.sleeperLeagueId,
+    })
     .from(leagues)
     .where(eq(leagues.id, leagueId))
     .limit(1);
@@ -109,12 +122,28 @@ function InvalidSettingsPanel() {
   );
 }
 
-function LeagueHeader({ leagueName, season }: { leagueName: string; season: SeasonRow | null }) {
+function LeagueHeader({
+  leagueName,
+  season,
+  sleeperLeagueId,
+}: {
+  leagueName: string;
+  season: SeasonRow | null;
+  sleeperLeagueId: string | null;
+}) {
   return (
     <header className="flex items-start justify-between gap-4 flex-wrap">
       <div>
         <h1 className="font-display text-3xl text-white">{leagueName}</h1>
         <div className="keyline mt-3" />
+        {sleeperLeagueId && (
+          <Link
+            href={`/league/${sleeperLeagueId}/history`}
+            className="inline-block mt-2 text-xs text-gray-500 hover:text-gold-400 transition-colors"
+          >
+            League history &rarr;
+          </Link>
+        )}
       </div>
       {season && (
         <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -168,7 +197,11 @@ export default async function LeagueHomePage({ params }: { params: { leagueId: s
 
   return (
     <div className="space-y-8">
-      <LeagueHeader leagueName={league.name} season={season} />
+      <LeagueHeader
+        leagueName={league.name}
+        season={season}
+        sleeperLeagueId={league.sleeperLeagueId}
+      />
       <SeasonSettingsSection season={season} parsedSettings={parsedSettings} />
       <TeamsGrid leagueId={league.id} teams={teamCards} />
       {isCreator && <InvitePanel teams={unclaimedInvites} />}

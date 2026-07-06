@@ -133,6 +133,14 @@ export interface TradePick {
   owner_id: number;
 }
 
+export interface SleeperTradedPick {
+  season: string; // draft year the pick belongs to, e.g. "2027"
+  round: number;
+  roster_id: number; // original owner's roster
+  previous_owner_id: number;
+  owner_id: number; // current owner's roster
+}
+
 export interface WaiverBudget {
   sender: number;
   receiver: number;
