@@ -8,6 +8,7 @@ import {
   SleeperNFLState,
   SleeperDraft,
   SleeperDraftPick,
+  SleeperTradedPick,
   PlayoffMatchup,
   TeamInfo,
   MatchupPair,
@@ -64,6 +65,10 @@ export async function getLeagueTransactions(leagueId: string, week: number): Pro
 
 export async function getLeagueDrafts(leagueId: string): Promise<SleeperDraft[]> {
   return fetchSleeper<SleeperDraft[]>(`/league/${leagueId}/drafts`);
+}
+
+export async function getTradedPicks(leagueId: string): Promise<SleeperTradedPick[]> {
+  return fetchSleeper<SleeperTradedPick[]>(`/league/${leagueId}/traded_picks`);
 }
 
 export async function getPlayoffBracket(leagueId: string, bracket: 'winners' | 'losers' = 'winners'): Promise<PlayoffMatchup[]> {
