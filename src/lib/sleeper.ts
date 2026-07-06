@@ -42,6 +42,12 @@ export async function getNFLState(): Promise<SleeperNFLState> {
   return fetchSleeper<SleeperNFLState>('/state/nfl');
 }
 
+// Weekly stats payload: shape is untrusted Sleeper JSON, so this deliberately
+// returns `unknown` — the engine (parseSleeperStats) is the trust boundary.
+export async function getWeekStats(season: number, week: number): Promise<unknown> {
+  return fetchSleeper<unknown>(`/stats/nfl/regular/${season}/${week}`);
+}
+
 // League endpoints
 export async function getLeague(leagueId: string): Promise<SleeperLeague> {
   return fetchSleeper<SleeperLeague>(`/league/${leagueId}`);
