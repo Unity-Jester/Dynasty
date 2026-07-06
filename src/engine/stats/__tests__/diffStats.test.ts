@@ -52,4 +52,33 @@ describe('diffStatLines', () => {
     expect(result.changed).toBe(false);
     expect(result.merged).toEqual(existing);
   });
+
+  // Absent-vs-zero is agreement, not a correction. Sleeper omits zero-valued
+  // stats; nflverse writes explicit zeros. Scoring treats absent as zero, so
+  // the two sources AGREE — stamping the row source='nflverse' for this would
+  // permanently freeze it against future Sleeper poll corrections (setWhere).
+  it('existing key absent + corrected zero: unchanged, zero not added to merged', () => {
+    const existing = {};
+    const corrected = { rec: 0 };
+    const result = diffStatLines(existing, corrected, ['rec']);
+    expect(result.changed).toBe(false);
+    expect(result.merged).toEqual({});
+    expect('rec' in result.merged).toBe(false);
+  });
+
+  it('existing key absent + corrected nonzero: still a change', () => {
+    const existing = {};
+    const corrected = { rec: 3 };
+    const result = diffStatLines(existing, corrected, ['rec']);
+    expect(result.changed).toBe(true);
+    expect(result.merged.rec).toBe(3);
+  });
+
+  it('existing zero + corrected zero: unchanged via the value-vs-value path', () => {
+    const existing = { rec: 0 };
+    const corrected = { rec: 0 };
+    const result = diffStatLines(existing, corrected, ['rec']);
+    expect(result.changed).toBe(false);
+    expect(result.merged).toEqual({ rec: 0 });
+  });
 });

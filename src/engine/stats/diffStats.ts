@@ -17,6 +17,14 @@ export interface DiffStatLinesResult {
 // A key present in `existing` but absent from `corrected` is left alone:
 // nflverse only covers offense-ish stats, so its absence is not evidence
 // the true value is zero — it just means nflverse doesn't track that key.
+//
+// The mirror case — absent in `existing`, (within EPSILON of) zero in
+// `corrected` — is AGREEMENT, not a correction: Sleeper omits zero-valued
+// stats while nflverse writes explicit zeros, and scoring treats absent as
+// zero. Stamping such rows as changed would flip their source to 'nflverse',
+// permanently freezing them against future Sleeper poll corrections (the
+// poll's setWhere guard never overwrites nflverse rows). Only an absent key
+// with a NONZERO corrected value is a genuine disagreement.
 export function diffStatLines(
   existing: Record<string, number>,
   corrected: Record<string, number>,
@@ -31,7 +39,10 @@ export function diffStatLines(
     invariant(correctedValue !== undefined, 'corrected value missing despite key-in check');
 
     const existingValue = existing[key];
-    const differs = existingValue === undefined || Math.abs(existingValue - correctedValue) > EPSILON;
+    // Absent existing + ~zero corrected = agreement (see doc comment above).
+    const differs = existingValue === undefined
+      ? Math.abs(correctedValue) > EPSILON
+      : Math.abs(existingValue - correctedValue) > EPSILON;
     if (differs) {
       merged[key] = correctedValue;
       changed = true;
