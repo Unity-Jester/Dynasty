@@ -61,6 +61,7 @@ async function fetchRosterMembers(teamId: string): Promise<MemberRow[]> {
     .from(rosterMembers)
     .innerJoin(players, eq(rosterMembers.playerId, players.sleeperId))
     .where(eq(rosterMembers.teamId, teamId))
+    .orderBy(players.position, players.fullName)
     .limit(MAX_ROSTER_DISPLAY);
 }
 

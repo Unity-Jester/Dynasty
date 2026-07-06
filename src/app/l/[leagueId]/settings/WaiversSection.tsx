@@ -10,8 +10,8 @@ const TIEBREAKER_OPTIONS = [
 
 type Waivers = LeagueSettings['waivers'];
 
-// Remember the last-seen value for the other mode so toggling back and forth
-// does not lose a manager's earlier entry within a single edit session.
+// Toggling modes resets the mode-specific fields to these defaults — an
+// earlier entry for the other mode is NOT remembered within the session.
 const DEFAULT_FAAB: Extract<Waivers, { mode: 'faab' }> = {
   mode: 'faab',
   budget: 100,
