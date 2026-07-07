@@ -18,6 +18,7 @@ export default function LeagueNav({
   const base = `/l/${leagueId}`;
   const links = [
     { href: base, label: 'Home' },
+    { href: `${base}/matchups`, label: 'Matchups' },
     { href: `${base}/settings`, label: 'Settings' },
   ];
 
