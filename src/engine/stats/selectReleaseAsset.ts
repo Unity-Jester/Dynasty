@@ -12,6 +12,46 @@ export type SelectAssetResult =
   | { ok: true; asset: ReleaseAsset }
   | { ok: false; error: string };
 
+// Exact asset names to look for, in preference order: the caller's preferred
+// name (e.g. a per-season or .gz variant), then a fallback (e.g. a
+// consolidated all-seasons file or a plain non-gz variant). Both are exact
+// names, never patterns — a release family sharing a prefix (see
+// player_stats_kicking_*, player_stats_def_*, etc.) must never be confused
+// for the wanted asset by a loose `includes` match.
+export interface AssetNamePreference {
+  preferred: string;
+  fallback: string;
+}
+
+// Select which release asset to use, by documented preference: the exact
+// preferred name if present, else the exact fallback name. Pure and total:
+// never fetches, never throws for ordinary "asset missing" cases (those are
+// reported via ok:false only when NEITHER name is available — a real
+// "source changed shape" signal the job surfaces rather than guessing).
+export function selectReleaseAsset(
+  assets: readonly ReleaseAsset[],
+  names: AssetNamePreference,
+): SelectAssetResult {
+  invariant(Array.isArray(assets), 'assets must be an array');
+  invariant(typeof names.preferred === 'string' && names.preferred.length > 0, 'preferred name must be non-empty');
+  invariant(typeof names.fallback === 'string' && names.fallback.length > 0, 'fallback name must be non-empty');
+
+  const preferred = assets.find((a) => a.name === names.preferred);
+  if (preferred !== undefined) {
+    return { ok: true, asset: preferred };
+  }
+
+  const fallback = assets.find((a) => a.name === names.fallback);
+  if (fallback !== undefined) {
+    return { ok: true, asset: fallback };
+  }
+
+  return {
+    ok: false,
+    error: `no usable asset: neither ${names.preferred} nor ${names.fallback} present (${assets.length} assets seen)`,
+  };
+}
+
 // The consolidated all-seasons offense file (spans every season in one gz).
 // This is the guaranteed fallback: it has existed across nflverse's release
 // reorganizations (see __fixtures__/README.md).
@@ -31,32 +71,12 @@ function perSeasonName(season: number): string {
   return `player_stats_${season}.csv.gz`;
 }
 
-// Select which release asset to download for a given season, by documented
-// preference: the exact per-season offense file if it exists, else the
-// consolidated all-seasons file. Pure and total: never fetches, never throws
-// for ordinary "asset missing" cases (those are reported via ok:false only
-// when NEITHER preference is available — a real "nflverse changed shape"
-// signal the job surfaces rather than guessing).
-export function selectReleaseAsset(
+// Convenience wrapper preserving the original player_stats call-site shape:
+// prefer the exact per-season offense file, else the consolidated file.
+export function selectPlayerStatsAsset(
   assets: readonly ReleaseAsset[],
   season: number,
 ): SelectAssetResult {
   invariant(Number.isInteger(season) && season > 1900 && season < 2100, 'season outside sane window');
-  invariant(Array.isArray(assets), 'assets must be an array');
-
-  const wanted = perSeasonName(season);
-  const perSeason = assets.find((a) => a.name === wanted);
-  if (perSeason !== undefined) {
-    return { ok: true, asset: perSeason };
-  }
-
-  const consolidated = assets.find((a) => a.name === CONSOLIDATED_NAME);
-  if (consolidated !== undefined) {
-    return { ok: true, asset: consolidated };
-  }
-
-  return {
-    ok: false,
-    error: `no usable asset: neither ${wanted} nor ${CONSOLIDATED_NAME} present (${assets.length} assets seen)`,
-  };
+  return selectReleaseAsset(assets, { preferred: perSeasonName(season), fallback: CONSOLIDATED_NAME });
 }

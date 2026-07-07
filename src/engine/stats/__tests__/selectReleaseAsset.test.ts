@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { selectReleaseAsset, type ReleaseAsset } from '../selectReleaseAsset';
+import { selectReleaseAsset, selectPlayerStatsAsset, type ReleaseAsset } from '../selectReleaseAsset';
 
 // Mirrors the real nflverse `player_stats` release families verified live on
 // 2026-07-06: the consolidated file, per-season offense files, and several
@@ -20,9 +20,9 @@ const REALISTIC: ReleaseAsset[] = [
   asset('player_stats_2023.parquet'),
 ];
 
-describe('selectReleaseAsset', () => {
+describe('selectPlayerStatsAsset', () => {
   it('prefers the exact per-season offense file when present', () => {
-    const result = selectReleaseAsset(REALISTIC, 2023);
+    const result = selectPlayerStatsAsset(REALISTIC, 2023);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.asset.name).toBe('player_stats_2023.csv.gz');
   });
@@ -36,26 +36,42 @@ describe('selectReleaseAsset', () => {
       asset('player_stats_def_2025.csv.gz'),
       asset('player_stats_season_2025.csv.gz'),
     ];
-    const result = selectReleaseAsset(assets, 2025);
+    const result = selectPlayerStatsAsset(assets, 2025);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.asset.name).toBe('player_stats.csv.gz');
   });
 
   it('falls back to the consolidated file when the season is unpublished', () => {
-    const result = selectReleaseAsset(REALISTIC, 2025);
+    const result = selectPlayerStatsAsset(REALISTIC, 2025);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.asset.name).toBe('player_stats.csv.gz');
   });
 
   it('errors when neither the per-season nor the consolidated file exists', () => {
     const assets: ReleaseAsset[] = [asset('player_stats_kicking_2023.csv.gz')];
-    const result = selectReleaseAsset(assets, 2023);
+    const result = selectPlayerStatsAsset(assets, 2023);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('no usable asset');
   });
 
   it('errors on an empty asset list rather than guessing', () => {
-    const result = selectReleaseAsset([], 2023);
+    const result = selectPlayerStatsAsset([], 2023);
     expect(result.ok).toBe(false);
+  });
+});
+
+describe('selectReleaseAsset (generalized form)', () => {
+  it('selects the preferred exact name when present, e.g. games.csv.gz over games.csv', () => {
+    const assets: ReleaseAsset[] = [asset('games.csv'), asset('games.csv.gz'), asset('games.parquet')];
+    const result = selectReleaseAsset(assets, { preferred: 'games.csv.gz', fallback: 'games.csv' });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.asset.name).toBe('games.csv.gz');
+  });
+
+  it('falls back to the exact fallback name when the preferred name is absent', () => {
+    const assets: ReleaseAsset[] = [asset('games.csv'), asset('games.parquet')];
+    const result = selectReleaseAsset(assets, { preferred: 'games.csv.gz', fallback: 'games.csv' });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.asset.name).toBe('games.csv');
   });
 });
