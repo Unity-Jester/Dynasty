@@ -104,7 +104,9 @@ async function fetchLatestSeason(leagueId: string): Promise<SeasonRow | null> {
   return row ?? null;
 }
 
-type GatePass = { team: TeamRow; settings: LeagueSettings };
+// Tagged like schedule.ts's gate — these action files are the template
+// future flows copy; keep the discriminant uniform (review ruling).
+type GatePass = { ok: true; team: TeamRow; settings: LeagueSettings };
 type GateResult = GatePass | { ok: false; error: SaveLineupError; detail?: string };
 type ParsedInput = z.infer<typeof SaveLineupInput>;
 
@@ -150,7 +152,7 @@ async function runGate(input: ParsedInput, userId: string): Promise<GateResult> 
     };
   }
 
-  return { team, settings: parsed.data };
+  return { ok: true, team, settings: parsed.data };
 }
 
 type ValidationInputs = {
@@ -275,7 +277,7 @@ export async function saveLineup(input: unknown): Promise<SaveLineupResult> {
   }
 
   const gate = await runGate(data, userId);
-  if ('ok' in gate) {
+  if (!gate.ok) {
     return gate;
   }
 
