@@ -1,0 +1,35 @@
+# sync-nfl-schedule: pulls nflverse's `schedules` release (games.csv) and
+# upserts per-team kickoff times into nfl_games, which drive per-player
+# lineup locks.
+#
+# Requires repo secrets APP_URL and CRON_SECRET.
+#
+# IMPORTANT — the route requires `season` (a sync job never guesses which
+# season's kickoffs to write). The weekly cron below is COMMENTED OUT until
+# deploy wires up a "current season" derivation (mirrors the reconcile-stats
+# TODO) — a live cron with no season would just POST a 400 every week.
+#
+# TODO(deploy): enable the cron entry once a "current season" derivation
+# exists, then drop the hardcoded season or template it from that source.
+#
+#   schedule:
+#     - cron: '0 10 * * 3'   # weekly, Wednesday 10:00 UTC (after schedule
+#                            # updates/flex scheduling typically settle)
+name: sync-nfl-schedule
+on:
+  # schedule:                     # enable at deploy — see TODO above
+  #   - cron: '0 10 * * 3'
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'NFL season, e.g. 2026'
+        required: true
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync NFL schedule
+        run: |
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/jobs/sync-nfl-schedule?season=${{ inputs.season }}"

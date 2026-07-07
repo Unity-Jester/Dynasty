@@ -19,6 +19,29 @@ export interface ParseScheduleResult {
   skipped: number;
 }
 
+// nflverse's schedule team codes are not always identical to ours (verified
+// live 2026-07-06 against `players.nfl_team`): nflverse uses the bare `LA`
+// for the Rams where our `players` table (sourced from Sleeper) uses `LAR`.
+// This is the one live mismatch for the current 32-team league; nflverse
+// also uses historical codes for relocated/renamed franchises in old
+// seasons (e.g. `OAK`/`SD`/`STL`), which are out of scope for lineup locks
+// on any season we'd actually run (no active roster plays for a defunct
+// code) but are mapped here too for completeness and so a future
+// wider-range query doesn't silently mismatch.
+const TEAM_CODE_MAP: ReadonlyMap<string, string> = new Map([
+  ['LA', 'LAR'], // Rams
+  ['OAK', 'LV'], // Raiders, pre-2020 relocation
+  ['SD', 'LAC'], // Chargers, pre-2017 relocation
+  ['STL', 'LAR'], // Rams, pre-2016 relocation
+]);
+
+// Normalize an nflverse team code to our players.nfl_team convention. Total:
+// codes not in the map pass through unchanged (the common case — 31 of 32
+// current codes already match).
+function normalizeTeamCode(code: string): string {
+  return TEAM_CODE_MAP.get(code) ?? code;
+}
+
 // Convert an nflverse (gameday, gametime) pair — wall-clock US/Eastern by
 // nflverse convention — to a UTC ISO-8601 string. No TZ database library:
 // Intl.DateTimeFormat with timeZone 'America/New_York' gives us the
@@ -137,8 +160,8 @@ function rowToGames(fields: readonly string[], idx: HeaderIndices, season: numbe
 
   const kickoffIso = easternToUtcIso(row.gameday, row.gametime);
   return [
-    { season, week: row.week, nflTeam: row.homeTeam, kickoffIso },
-    { season, week: row.week, nflTeam: row.awayTeam, kickoffIso },
+    { season, week: row.week, nflTeam: normalizeTeamCode(row.homeTeam), kickoffIso },
+    { season, week: row.week, nflTeam: normalizeTeamCode(row.awayTeam), kickoffIso },
   ];
 }
 

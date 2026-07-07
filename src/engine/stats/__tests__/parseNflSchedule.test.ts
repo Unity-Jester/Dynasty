@@ -71,6 +71,16 @@ describe('parseNflSchedule', () => {
     expect(result.skipped).toBe(0);
   });
 
+  it('normalizes nflverse team code LA to our players.nfl_team convention LAR', () => {
+    // Live-verified mismatch (2026-07-06): nflverse's schedule uses bare `LA`
+    // for the Rams; our players table (Sleeper-sourced) uses `LAR`. Locks
+    // must key off the same code players.nfl_team uses.
+    const result = parseNflSchedule(fixtureText, 2026);
+    const thursdayNighter = result.games.filter((g) => g.week === 1 && g.kickoffIso === '2026-09-11T00:35:00.000Z');
+    expect(thursdayNighter.map((g) => g.nflTeam).sort()).toEqual(['LAR', 'SF']);
+    expect(result.games.some((g) => g.nflTeam === 'LA')).toBe(false);
+  });
+
   it('every emitted game carries the requested season and a valid ISO kickoff', () => {
     const result = parseNflSchedule(fixtureText, 2026);
     for (const g of result.games) {
