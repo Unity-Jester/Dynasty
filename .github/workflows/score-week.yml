@@ -1,0 +1,45 @@
+# score-week: turns lineups + stat lines into matchup results. Reads each
+# league's scoring settings, scores both sides of every non-final matchup for
+# the given (season, week), and writes clean 2dp point strings via guarded
+# UPDATEs. `finalize=true` freezes the results (final=true).
+#
+# Requires repo secrets APP_URL and CRON_SECRET.
+#
+# IMPORTANT — the route requires BOTH season and week (a scoring job never
+# guesses which week to write). Like reconcile-stats, a param-less cron would
+# just POST a 400, so the schedule below is COMMENTED OUT.
+#
+# TODO(deploy): chain this AFTER poll-stats once a "current week" derivation
+# exists (a small step that reads Sleeper's /state/nfl and computes
+# season+week). Scoring must run after the week's stats have been polled —
+# score-week reads the same stat_lines poll-stats writes — so the natural
+# deploy shape is: poll-stats -> (stats settle) -> score-week for that week,
+# with a nightly finalize=true pass once games are complete.
+#
+#   schedule:
+#     - cron: '30 6 * * 2'   # Tue 06:30 UTC (after Mon-night games + poll)
+name: score-week
+on:
+  # schedule:                     # enable at deploy — see TODO above
+  #   - cron: '30 6 * * 2'
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'NFL season, e.g. 2026'
+        required: true
+      week:
+        description: 'NFL week (1-18)'
+        required: true
+      finalize:
+        description: 'Freeze results (final=true)? true/false'
+        required: false
+        default: 'false'
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Score the week's matchups
+        run: |
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/jobs/score-week?season=${{ inputs.season }}&week=${{ inputs.week }}&finalize=${{ inputs.finalize }}"
