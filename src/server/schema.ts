@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
-  pgTable, uuid, text, integer, timestamp, jsonb, uniqueIndex, index,
+  pgTable, uuid, text, integer, timestamp, jsonb, uniqueIndex, index, numeric, boolean, check,
 } from 'drizzle-orm/pg-core';
 
 // Mirrors Supabase auth.users (1:1); rows created by a claim/signup action.
@@ -127,4 +127,30 @@ export const statLines = pgTable('stat_lines', {
 }, (t) => [
   uniqueIndex('stat_lines_player_week_uq').on(t.playerId, t.season, t.week),
   index('stat_lines_season_week_idx').on(t.season, t.week),
+]);
+
+// One row per pairing per week. Points are filled by the Phase 6 scoreWeek
+// job once lineups exist; null until then. final=true freezes the result.
+export const matchups = pgTable('matchups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  leagueId: uuid('league_id').notNull().references(() => leagues.id),
+  season: integer('season').notNull(),
+  week: integer('week').notNull(),
+  homeTeamId: uuid('home_team_id').notNull().references(() => teams.id),
+  awayTeamId: uuid('away_team_id').notNull().references(() => teams.id),
+  homePoints: numeric('home_points'),
+  awayPoints: numeric('away_points'),
+  final: boolean('final').notNull().default(false),
+}, (t) => [
+  // These two uniqueness guards ensure a team appears at most once per week
+  // on each SIDE (home or away) — they do NOT block a team from being home
+  // in one row and away in another the same week. That cross-side collision
+  // is prevented elsewhere: the schedule generator's engine invariants never
+  // produce it, and Task 6's create-matchup action asserts home != away per
+  // row. The CHECK below covers the one thing indexes can't: a row pairing
+  // a team against itself.
+  uniqueIndex('matchups_home_week_uq').on(t.leagueId, t.season, t.week, t.homeTeamId),
+  uniqueIndex('matchups_away_week_uq').on(t.leagueId, t.season, t.week, t.awayTeamId),
+  index('matchups_league_week_idx').on(t.leagueId, t.season, t.week),
+  check('matchups_home_away_distinct_ck', sql`${t.homeTeamId} <> ${t.awayTeamId}`),
 ]);
