@@ -149,8 +149,8 @@ export const matchups = pgTable('matchups', {
   // on each SIDE (home or away) — they do NOT block a team from being home
   // in one row and away in another the same week. That cross-side collision
   // is prevented elsewhere: the schedule generator's engine invariants never
-  // produce it, and Task 6's create-matchup action asserts home != away per
-  // row. The CHECK below covers the one thing indexes can't: a row pairing
+  // produce it, and generateSchedule's per-week assertion re-verifies before
+  // insert. The CHECK below covers the one thing indexes can't: a row pairing
   // a team against itself.
   uniqueIndex('matchups_home_week_uq').on(t.leagueId, t.season, t.week, t.homeTeamId),
   uniqueIndex('matchups_away_week_uq').on(t.leagueId, t.season, t.week, t.awayTeamId),
