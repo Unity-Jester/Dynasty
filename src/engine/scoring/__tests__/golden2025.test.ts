@@ -98,6 +98,13 @@ describe('golden-file: 2025 season reproduces Sleeper exactly', () => {
     const slots = ALL_COMPARISONS.filter((c) => c.kind === 'slot').length;
     const totals = ALL_COMPARISONS.filter((c) => c.kind === 'total').length;
 
+    // Coverage is pinned, not just logged: a regression that silently drops
+    // comparisons must fail here, or a perfect score proves nothing.
+    expect(players, 'per-player comparison count').toBe(238);
+    expect(slots, 'per-slot comparison count').toBe(240);
+    expect(totals, 'team-total comparison count').toBe(24);
+    expect(ALL_COMPARISONS.length, 'total comparison count').toBe(502);
+
     // eslint-disable-next-line no-console -- required aggregate report per task spec
     console.log(
       `[golden2025] team-weeks=${RESULTS.length} comparisons=${ALL_COMPARISONS.length} ` +
