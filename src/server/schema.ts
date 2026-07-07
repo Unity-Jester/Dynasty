@@ -157,3 +157,20 @@ export const matchups = pgTable('matchups', {
   index('matchups_league_week_idx').on(t.leagueId, t.season, t.week),
   check('matchups_home_away_distinct_ck', sql`${t.homeTeamId} <> ${t.awayTeamId}`),
 ]);
+
+// One row per starter-slot instance per team-week. playerId null = empty slot.
+// The partial unique index is the "player starts at most once" invariant.
+export const lineupSlots = pgTable('lineup_slots', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  teamId: uuid('team_id').notNull().references(() => teams.id),
+  season: integer('season').notNull(),
+  week: integer('week').notNull(),
+  slot: text('slot').notNull(),
+  slotIndex: integer('slot_index').notNull(),
+  playerId: text('player_id').references(() => players.sleeperId),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('lineup_slots_instance_uq').on(t.teamId, t.season, t.week, t.slot, t.slotIndex),
+  uniqueIndex('lineup_slots_player_uq').on(t.teamId, t.season, t.week, t.playerId).where(sql`${t.playerId} IS NOT NULL`),
+  index('lineup_slots_team_week_idx').on(t.teamId, t.season, t.week),
+]);
