@@ -174,3 +174,17 @@ export const lineupSlots = pgTable('lineup_slots', {
   uniqueIndex('lineup_slots_player_uq').on(t.teamId, t.season, t.week, t.playerId).where(sql`${t.playerId} IS NOT NULL`),
   index('lineup_slots_team_week_idx').on(t.teamId, t.season, t.week),
 ]);
+
+// One row per NFL team per game: kickoff drives per-player lineup locks.
+// Kickoffs are stored UTC; source gametime is US/Eastern (converted at ingest).
+export const nflGames = pgTable('nfl_games', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  season: integer('season').notNull(),
+  week: integer('week').notNull(),
+  nflTeam: text('nfl_team').notNull(),
+  kickoff: timestamp('kickoff', { withTimezone: true }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('nfl_games_team_week_uq').on(t.season, t.week, t.nflTeam),
+  index('nfl_games_season_week_idx').on(t.season, t.week),
+]);
