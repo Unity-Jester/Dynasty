@@ -138,6 +138,9 @@ export const matchups = pgTable('matchups', {
   week: integer('week').notNull(),
   homeTeamId: uuid('home_team_id').notNull().references(() => teams.id),
   awayTeamId: uuid('away_team_id').notNull().references(() => teams.id),
+  // Drizzle surfaces `numeric` as string|null in TS: the Phase 6 scoreWeek
+  // writer must store clean 2dp strings (roundPoints(...).toFixed(2)) and
+  // standings math must Number()-parse on read.
   homePoints: numeric('home_points'),
   awayPoints: numeric('away_points'),
   final: boolean('final').notNull().default(false),
