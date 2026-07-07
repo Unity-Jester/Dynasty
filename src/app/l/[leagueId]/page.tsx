@@ -9,6 +9,8 @@ import { getSiteOrigin } from '@/lib/siteOrigin';
 import TeamsGrid from './TeamsGrid';
 import InvitePanel from './InvitePanel';
 import SettingsSummary from './SettingsSummary';
+import StandingsPanel from './StandingsPanel';
+import { getStandings, type StandingRow } from './standingsQueries';
 
 // A hosted league's roster is created up front from teamCount (max 32,
 // see engine/settings.ts); 40 leaves headroom without being unbounded.
@@ -195,6 +197,16 @@ export default async function LeagueHomePage({ params }: { params: { leagueId: s
 
   const parsedSettings = season ? LeagueSettingsSchema.safeParse(season.settings) : null;
 
+  // Standings are computed from FINAL matchups only; an engine error (a
+  // malformed points row — an impossible state scoreWeek never writes) degrades
+  // to the empty state rather than crashing the league home. [] until games go
+  // final, which drives the "Standings appear once games go final." message.
+  let standingsRows: StandingRow[] = [];
+  if (season) {
+    const standings = await getStandings(league.id, season.year);
+    if (standings.ok) standingsRows = standings.rows;
+  }
+
   return (
     <div className="space-y-8">
       <LeagueHeader
@@ -203,6 +215,7 @@ export default async function LeagueHomePage({ params }: { params: { leagueId: s
         sleeperLeagueId={league.sleeperLeagueId}
       />
       <SeasonSettingsSection season={season} parsedSettings={parsedSettings} />
+      {season && <StandingsPanel rows={standingsRows} />}
       <TeamsGrid leagueId={league.id} teams={teamCards} />
       {isCreator && <InvitePanel teams={unclaimedInvites} />}
     </div>
