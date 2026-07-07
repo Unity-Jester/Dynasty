@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { invariant } from '@/lib/invariant';
 
-// Player positions, not lineup slots — see ROSTER_SLOTS in settings.ts; Phase 6
-// needs an explicit position→eligible-slots mapping, do not assume these lists align.
+// Player positions, not lineup slots — see ROSTER_SLOTS in settings.ts.
+// The position→eligible-slots mapping lives in src/engine/lineup/eligibility.ts;
+// do not assume these lists align without going through that module.
 export const ROSTERABLE_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'] as const;
 const MAX_SLEEPER_PLAYERS = 30_000; // Sleeper's map is ~11k; 30k = something is wrong
 

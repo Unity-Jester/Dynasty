@@ -149,11 +149,42 @@ export const matchups = pgTable('matchups', {
   // on each SIDE (home or away) — they do NOT block a team from being home
   // in one row and away in another the same week. That cross-side collision
   // is prevented elsewhere: the schedule generator's engine invariants never
-  // produce it, and Task 6's create-matchup action asserts home != away per
-  // row. The CHECK below covers the one thing indexes can't: a row pairing
+  // produce it, and generateSchedule's per-week assertion re-verifies before
+  // insert. The CHECK below covers the one thing indexes can't: a row pairing
   // a team against itself.
   uniqueIndex('matchups_home_week_uq').on(t.leagueId, t.season, t.week, t.homeTeamId),
   uniqueIndex('matchups_away_week_uq').on(t.leagueId, t.season, t.week, t.awayTeamId),
   index('matchups_league_week_idx').on(t.leagueId, t.season, t.week),
   check('matchups_home_away_distinct_ck', sql`${t.homeTeamId} <> ${t.awayTeamId}`),
+]);
+
+// One row per starter-slot instance per team-week. playerId null = empty slot.
+// The partial unique index is the "player starts at most once" invariant.
+export const lineupSlots = pgTable('lineup_slots', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  teamId: uuid('team_id').notNull().references(() => teams.id),
+  season: integer('season').notNull(),
+  week: integer('week').notNull(),
+  slot: text('slot').notNull(),
+  slotIndex: integer('slot_index').notNull(),
+  playerId: text('player_id').references(() => players.sleeperId),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('lineup_slots_instance_uq').on(t.teamId, t.season, t.week, t.slot, t.slotIndex),
+  uniqueIndex('lineup_slots_player_uq').on(t.teamId, t.season, t.week, t.playerId).where(sql`${t.playerId} IS NOT NULL`),
+  index('lineup_slots_team_week_idx').on(t.teamId, t.season, t.week),
+]);
+
+// One row per NFL team per game: kickoff drives per-player lineup locks.
+// Kickoffs are stored UTC; source gametime is US/Eastern (converted at ingest).
+export const nflGames = pgTable('nfl_games', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  season: integer('season').notNull(),
+  week: integer('week').notNull(),
+  nflTeam: text('nfl_team').notNull(),
+  kickoff: timestamp('kickoff', { withTimezone: true }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('nfl_games_team_week_uq').on(t.season, t.week, t.nflTeam),
+  index('nfl_games_season_week_idx').on(t.season, t.week),
 ]);

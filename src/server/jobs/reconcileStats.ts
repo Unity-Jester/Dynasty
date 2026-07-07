@@ -7,7 +7,7 @@ import { parseCSVLine } from '@/lib/utils';
 import { invariant } from '@/lib/invariant';
 import { MAPPED_SLEEPER_KEYS, mapNflverseRow, parseCrosswalk } from '@/engine/stats/nflverseMap';
 import { diffStatLines } from '@/engine/stats/diffStats';
-import { selectReleaseAsset, type ReleaseAsset } from '@/engine/stats/selectReleaseAsset';
+import { selectPlayerStatsAsset, type ReleaseAsset } from '@/engine/stats/selectReleaseAsset';
 
 // --- windows (copied from pollStats) ---
 const MIN_SEASON = 2020;
@@ -113,7 +113,7 @@ async function fetchNflverseCsv(
     const payload: unknown = await metaRes.json();
     const assets = parseReleaseAssets(payload);
 
-    const selected = selectReleaseAsset(assets, season);
+    const selected = selectPlayerStatsAsset(assets, season);
     if (!selected.ok) return { ok: false, error: selected.error };
     const { asset } = selected;
 
