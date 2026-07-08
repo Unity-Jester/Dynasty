@@ -239,6 +239,15 @@ async function restoreAcceptedToPending(transactionId: string): Promise<void> {
 // fresh reads. Failure restores pending and tells the RESPONDER what broke
 // (never a silent reject — the trade stays open). reviewMode none executes
 // inline; commissioner/league_vote parks it for review.
+//
+// TODO(phase-7+): crash window — if this process dies between the
+// pending->accepted transition below and the follow-up (park / execute /
+// restore), the row is STUCK in 'accepted': every action guards on 'pending'
+// or 'pending_review', so nothing can move it again (a re-accept returns
+// invalid_status). Deliberately not self-healed here — loosening the accept
+// guard to also match 'accepted' would reopen the double-execute race.
+// Future ops path: a reconciliation job (or commissioner affordance) that
+// finds stale 'accepted' trade rows and restores them to 'pending'.
 async function acceptTrade(
   row: TradeTransactionRow,
   payload: TradePayload,

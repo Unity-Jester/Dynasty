@@ -1,7 +1,7 @@
 import 'server-only';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray, lte } from 'drizzle-orm';
 import { getDb } from '@/server/db';
-import { leagues, nflGames, pickAssets, rosterMembers, seasons, teams, transactions } from '@/server/schema';
+import { leagues, nflGames, pickAssets, players, rosterMembers, seasons, teams, transactions } from '@/server/schema';
 import { invariant } from '@/lib/invariant';
 import { firstZodIssueMessage } from '@/engine/zodIssue';
 import { LeagueSettingsSchema, type LeagueSettings } from '@/engine/settings';
@@ -113,6 +113,56 @@ async function fetchKickoffs(
     kickoffs.set(row.nflTeam, row.kickoff.toISOString());
   }
   return kickoffs;
+}
+
+// Conn-scoped twin of locks.ts getLockedNflTeams (hard-wired to the pooled
+// client, so structurally unusable inside a transaction with max:1 pooling).
+// Same query shape and bound: NFL team codes whose (season, week) game has
+// already kicked off as of `now`.
+export async function fetchLockedNflTeams(
+  conn: DbConn,
+  season: number,
+  week: number,
+  now: Date,
+): Promise<ReadonlySet<string>> {
+  invariant(!Number.isNaN(now.getTime()), 'now is an invalid Date');
+  const rows = await conn
+    .select({ nflTeam: nflGames.nflTeam })
+    .from(nflGames)
+    .where(and(eq(nflGames.season, season), eq(nflGames.week, week), lte(nflGames.kickoff, now)))
+    .limit(MAX_GAMES_PER_WEEK);
+  invariant(rows.length <= MAX_GAMES_PER_WEEK, 'locked-team query exceeded its bound');
+  const locked = new Set<string>();
+  for (const row of rows) {
+    locked.add(row.nflTeam);
+  }
+  return locked;
+}
+
+// Bound mirrors the trade payload cap (15 players per side; see payloads.ts).
+const MAX_PLAYER_LOOKUP = 30;
+
+/** playerId -> nflTeam (null = free agent) for the given players. Locks are
+ *  keyed by NFL team while lineup slots store player ids; this is the join. */
+export async function fetchPlayerNflTeams(
+  conn: DbConn,
+  playerIds: readonly string[],
+): Promise<ReadonlyMap<string, string | null>> {
+  invariant(playerIds.length <= MAX_PLAYER_LOOKUP, 'player lookup exceeded its bound');
+  const byId = new Map<string, string | null>();
+  if (playerIds.length === 0) {
+    return byId;
+  }
+  const rows = await conn
+    .select({ id: players.sleeperId, nflTeam: players.nflTeam })
+    .from(players)
+    .where(inArray(players.sleeperId, [...playerIds]))
+    .limit(MAX_PLAYER_LOOKUP);
+  invariant(rows.length <= MAX_PLAYER_LOOKUP, 'player lookup result exceeded its bound');
+  for (const row of rows) {
+    byId.set(row.id, row.nflTeam);
+  }
+  return byId;
 }
 
 export async function fetchTradeTransaction(
