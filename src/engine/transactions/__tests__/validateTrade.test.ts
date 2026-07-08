@@ -279,3 +279,25 @@ describe('planTradeExecution', () => {
     expect(() => planTradeExecution(p, rosters)).toThrow(/Invariant/);
   });
 });
+
+// Duplicate ids within one side are rejected by the TradeAssets schema; these
+// payloads are constructed literally (bypassing parsing) to pin the engine's
+// defense-in-depth invariant — without it a duplicate would double-count in
+// the capacity simulation and duplicate moves in the execution plan.
+describe('duplicate assets bypassing schema validation', () => {
+  it('validateTradeProposal trips an invariant on a duplicate give playerId', () => {
+    const input = makeInput({
+      payload: payload({ give: { playerIds: ['a0', 'a0'], pickIds: [] } }),
+    });
+    expect(() => validateTradeProposal(input)).toThrow(/Invariant.*duplicate playerIds/);
+  });
+
+  it('planTradeExecution trips an invariant on a duplicate receive pickId', () => {
+    const p = payload({ receive: { playerIds: [], pickIds: [PICK_B1, PICK_B1] } });
+    const rosters = {
+      proposingRoster: activeMembers('a', 5),
+      counterpartyRoster: activeMembers('b', 5),
+    };
+    expect(() => planTradeExecution(p, rosters)).toThrow(/Invariant.*duplicate pickIds/);
+  });
+});

@@ -37,6 +37,28 @@ describe('TradePayloadSchema', () => {
     expect(TradePayloadSchema.safeParse(payload).success).toBe(false);
   });
 
+  it('rejects a duplicate playerId within one side', () => {
+    const payload = {
+      kind: 'trade',
+      proposingTeamId: TEAM_A,
+      counterpartyTeamId: TEAM_B,
+      give: { playerIds: ['4046', '4046'], pickIds: [] },
+      receive: { playerIds: [], pickIds: [] },
+    };
+    expect(TradePayloadSchema.safeParse(payload).success).toBe(false);
+  });
+
+  it('rejects a duplicate pickId within one side', () => {
+    const payload = {
+      kind: 'trade',
+      proposingTeamId: TEAM_A,
+      counterpartyTeamId: TEAM_B,
+      give: { playerIds: [], pickIds: [PICK_A, PICK_A] },
+      receive: { playerIds: [], pickIds: [] },
+    };
+    expect(TradePayloadSchema.safeParse(payload).success).toBe(false);
+  });
+
   it('rejects a note longer than 280 characters', () => {
     const payload = {
       kind: 'trade',

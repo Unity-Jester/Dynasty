@@ -10,9 +10,21 @@ const MAX_NOTE_LENGTH = 280;
 const MAX_BID = 10_000;
 const MAX_COMMISH_DETAIL_KEYS = 20;
 
+// Duplicate ids within one side are rejected here, at the trust boundary —
+// downstream (validateTrade.ts) a duplicate would double-count in the capacity
+// simulation and duplicate moves in the execution plan, so post-parse it is
+// treated as an impossible state, not an error result.
+const hasNoDuplicates = (ids: readonly string[]): boolean => new Set(ids).size === ids.length;
+
 const TradeAssets = z.object({
-  playerIds: z.array(z.string().min(1)).max(MAX_TRADE_PLAYERS),
-  pickIds: z.array(z.string().uuid()).max(MAX_TRADE_PICKS),
+  playerIds: z
+    .array(z.string().min(1))
+    .max(MAX_TRADE_PLAYERS)
+    .refine(hasNoDuplicates, { message: 'playerIds must not contain duplicates' }),
+  pickIds: z
+    .array(z.string().uuid())
+    .max(MAX_TRADE_PICKS)
+    .refine(hasNoDuplicates, { message: 'pickIds must not contain duplicates' }),
 });
 
 export const TradePayloadSchema = z.object({

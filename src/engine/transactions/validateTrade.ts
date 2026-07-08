@@ -61,6 +61,17 @@ function assertSideBounds(side: TradePayload['give'], label: string): void {
     side.pickIds.length <= MAX_TRADE_SIDE_PICKS,
     `${label} side has ${side.pickIds.length} picks, over the ${MAX_TRADE_SIDE_PICKS} cap — payload bypassed schema validation`,
   );
+  // Duplicates are rejected by the TradeAssets schema (payloads.ts); one here
+  // would double-count in the capacity simulation and duplicate moves in the
+  // execution plan, so post-parse it is an impossible state.
+  invariant(
+    new Set(side.playerIds).size === side.playerIds.length,
+    `${label} side has duplicate playerIds — payload bypassed schema validation`,
+  );
+  invariant(
+    new Set(side.pickIds).size === side.pickIds.length,
+    `${label} side has duplicate pickIds — payload bypassed schema validation`,
+  );
 }
 
 /** First asset in `payload` not owned by its sending team, or null. */
