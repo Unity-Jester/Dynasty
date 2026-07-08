@@ -6,6 +6,7 @@ import { invariant } from '@/lib/invariant';
 import { STARTER_SLOTS } from '@/engine/lineup/eligibility';
 import { starterSlotCount, type LeagueSettings } from '@/engine/settings';
 import { getKickoffs, getLockedNflTeams } from '@/server/lineup/locks';
+import { firstOpenWeek } from '@/server/currentWeek';
 import type { RosterPlayer, SlotInstance } from './types';
 
 const WeekParam = z.coerce.number().int().min(1).max(18);
@@ -67,43 +68,6 @@ export async function fetchCurrentLineup(
     .limit(MAX_LINEUP_ROWS);
   invariant(rows.length <= MAX_LINEUP_ROWS, 'current lineup query exceeded its bound');
   return rows;
-}
-
-// The regular season is weeks 1..(startWeek - 1); bounded by the same NFL
-// week ceiling used elsewhere (Rule 2).
-const MAX_WEEKS_TO_SCAN = 18;
-
-/**
- * The default week to land on when no ?week= searchParam is given: the first
- * week in [1, lastRegularWeek] whose kickoffs are not ALL in the past (i.e.
- * still has at least one game yet to start, or has no games recorded yet —
- * July has none, so week 1 is "open"). Falls back to week 1 if every week has
- * fully kicked off. Bounded loop over a fixed, small week range (Rule 2);
- * `fetchWeekKickoffs` is called at most MAX_WEEKS_TO_SCAN times.
- */
-export async function firstOpenWeek(
-  lastRegularWeek: number,
-  now: Date,
-  fetchWeekKickoffs: (week: number) => Promise<ReadonlyMap<string, string>>,
-): Promise<number> {
-  const cap = Math.min(lastRegularWeek, MAX_WEEKS_TO_SCAN);
-  for (let week = 1; week <= cap; week += 1) {
-    const kickoffs = await fetchWeekKickoffs(week);
-    if (kickoffs.size === 0) {
-      return week; // no games recorded yet — treat as open
-    }
-    let allPast = true;
-    for (const iso of kickoffs.values()) {
-      if (new Date(iso).getTime() > now.getTime()) {
-        allPast = false;
-        break;
-      }
-    }
-    if (!allPast) {
-      return week;
-    }
-  }
-  return 1;
 }
 
 export type TeamRow = { id: string; leagueId: string; name: string; ownerId: string | null };
