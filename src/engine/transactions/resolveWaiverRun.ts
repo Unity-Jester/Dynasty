@@ -68,8 +68,14 @@ interface RunContext {
   readonly settings: LeagueSettings;
   readonly standingsRank: Map<string, Standing>;
   readonly rosters: Map<string, RosterMemberShape[]>;
-  /** All player ids currently on ANY simulated roster. */
-  readonly rostered: Set<string>;
+  /**
+   * Player ids on ANY roster at RUN START — a frozen snapshot, never mutated.
+   * A run-start-rostered player is unclaimable for the ENTIRE run, even if a
+   * mid-run award drops him: dropped players go on waivers for the NEXT run
+   * (decision #7 — unclaimed players remain claimable next run), never straight
+   * to a same-run claim (that would be a disguised instant free-agent add).
+   */
+  readonly rosteredAtStart: ReadonlySet<string>;
   /** For players awarded THIS run: the winning bid (null in priority mode). */
   readonly awardedBid: Map<string, number | null>;
   readonly faab: Map<string, number>;
@@ -148,6 +154,9 @@ function selectNextClaim(remaining: ReadonlySet<WaiverClaimInput>, ctx: RunConte
 
 // ---- per-claim state machine ------------------------------------------------
 
+// A run-start-rostered player has no awardedBid entry, so such a claim can
+// never be 'outbid' — there is no winning bid to be beaten by; it is always
+// 'player_taken' (the player was taken/rostered when the run began).
 function reasonForTaken(ctx: RunContext, claim: WaiverClaimInput): WaiverDecisionReason {
   if (ctx.mode === 'faab') {
     const winBid = ctx.awardedBid.get(claim.addPlayerId);
@@ -166,10 +175,11 @@ function postRosterFor(ctx: RunContext, claim: WaiverClaimInput): RosterMemberSh
   return [...afterDrop, { playerId: claim.addPlayerId, status: 'active' }];
 }
 
+// Note: a mid-run drop mutates ONLY the team's member list (freeing capacity
+// for that team's later claims). It does NOT make the dropped player claimable
+// — availability is rosteredAtStart + awardedBid, and neither shrinks.
 function commitAward(ctx: RunContext, claim: WaiverClaimInput, post: RosterMemberShape[]): void {
   ctx.rosters.set(claim.teamId, post);
-  if (claim.dropPlayerId !== null) ctx.rostered.delete(claim.dropPlayerId);
-  ctx.rostered.add(claim.addPlayerId);
   ctx.awardedBid.set(claim.addPlayerId, ctx.mode === 'faab' ? claim.bid : null);
   if (ctx.mode === 'faab' && claim.bid !== null) {
     const next = faabOf(ctx, claim.teamId) - claim.bid;
@@ -202,7 +212,10 @@ function processClaim(ctx: RunContext, claim: WaiverClaimInput): WaiverDecision 
   if (ctx.mode === 'faab' && claim.bid !== null && claim.bid > faabOf(ctx, claim.teamId)) {
     return reject('insufficient_funds');
   }
-  if (ctx.rostered.has(claim.addPlayerId)) {
+  // Unavailable = rostered anywhere at run start OR already awarded this run.
+  // A run-start snapshot (not the live rosters) so a mid-run drop cannot make
+  // its player instantly claimable — see RunContext.rosteredAtStart.
+  if (ctx.rosteredAtStart.has(claim.addPlayerId) || ctx.awardedBid.has(claim.addPlayerId)) {
     return reject(reasonForTaken(ctx, claim));
   }
   const post = postRosterFor(ctx, claim);
@@ -226,10 +239,10 @@ function buildContext(input: ResolveWaiverRunInput): RunContext {
 
   invariant(input.rosters.size <= MAX_TEAMS, `roster map has ${input.rosters.size} teams, over ${MAX_TEAMS}`);
   const rosters = new Map<string, RosterMemberShape[]>();
-  const rostered = new Set<string>();
+  const rosteredAtStart = new Set<string>();
   for (const [teamId, members] of input.rosters) {
     rosters.set(teamId, [...members]);
-    for (const m of members) rostered.add(m.playerId);
+    for (const m of members) rosteredAtStart.add(m.playerId);
   }
 
   const priorityQueue = [...input.waiverPriority.keys()].sort((a, b) => {
@@ -247,7 +260,7 @@ function buildContext(input: ResolveWaiverRunInput): RunContext {
     settings: input.settings,
     standingsRank: new Map(standings.map((s) => [s.teamId, s])),
     rosters,
-    rostered,
+    rosteredAtStart,
     awardedBid: new Map<string, number | null>(),
     faab: new Map(input.faabRemaining),
     priorityQueue,
@@ -268,7 +281,10 @@ function buildNewPriority(input: ResolveWaiverRunInput, ctx: RunContext): Map<st
  * Deterministically resolves one waiver run: decides which claims are awarded,
  * charges FAAB / rotates rolling priority, and returns the post-run budget and
  * priority maps for the caller (Task 6) to persist. Pure — no I/O, no clock, no
- * randomness. Every claim yields exactly one decision.
+ * randomness. Every claim yields exactly one decision. A player rostered
+ * anywhere at run start stays unclaimable for the whole run even if dropped
+ * mid-run (drops free the dropping team's capacity only; the player hits
+ * waivers for the NEXT run).
  *
  * Returns an error result only for a boundary violation the DB schema permits
  * (a null bid on a FAAB claim — the `bid` column is nullable). Genuinely
@@ -301,11 +317,19 @@ export function resolveWaiverRun(input: ResolveWaiverRunInput): ResolveWaiverRun
   }
 
   invariant(decisions.length === claims.length, 'every claim must yield exactly one decision');
+  // No player awarded twice: map awarded decisions back to their claims'
+  // addPlayerIds; the set must be as large as the award count. Unreachable
+  // through the availability gate above — this is defense against a future
+  // weakening of that gate, not a live code path.
+  const claimById = new Map(claims.map((c) => [c.transactionId, c]));
   const awarded = decisions.filter((d) => d.outcome === 'awarded');
-  invariant(
-    new Set(awarded.map((d) => d.transactionId)).size === awarded.length,
-    'a claim was awarded more than once',
-  );
+  const awardedPlayers = new Set<string>();
+  for (const d of awarded) {
+    const c = claimById.get(d.transactionId);
+    invariant(c !== undefined, `awarded decision ${d.transactionId} has no matching claim`);
+    awardedPlayers.add(c.addPlayerId);
+  }
+  invariant(awardedPlayers.size === awarded.length, 'a player was awarded to more than one claim');
 
   const newFaab = new Map(ctx.faab);
   invariant([...newFaab.values()].every((v) => v >= 0), 'a FAAB balance ended below zero');

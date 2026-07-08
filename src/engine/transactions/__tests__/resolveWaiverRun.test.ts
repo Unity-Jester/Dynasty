@@ -477,6 +477,109 @@ describe('resolveWaiverRun — output maps & determinism', () => {
   });
 });
 
+describe('resolveWaiverRun — run-start roster snapshot', () => {
+  it('rejects a claim for a player another team dropped EARLIER in the same run (player_taken)', () => {
+    // Reviewer scenario: A adds N1 dropping Z (bid 50); B claims Z (bid 10).
+    // A's award drops Z mid-run, but Z was rostered at run start -> B must be
+    // rejected player_taken (Z goes on waivers for the NEXT run), never awarded.
+    const result = run({
+      claims: [
+        claim({ transactionId: 'a-swap', teamId: 'A', addPlayerId: 'N1', dropPlayerId: 'Z', bid: 50 }),
+        claim({ transactionId: 'b-snipe', teamId: 'B', addPlayerId: 'Z', bid: 10 }),
+      ],
+      standings: [],
+      rosters: new Map([['A', [{ playerId: 'Z', status: 'active' as const }]], ['B', []]]),
+      faabRemaining: new Map([['A', 100], ['B', 100]]),
+      waiverPriority: new Map([['A', 1], ['B', 2]]),
+    });
+    expect(decisionFor(result, 'a-swap').outcome).toBe('awarded');
+    // player_taken, NOT outbid: Z was never awarded this run, so there is no
+    // winning bid to have been beaten by.
+    expect(decisionFor(result, 'b-snipe')).toEqual({
+      transactionId: 'b-snipe',
+      outcome: 'rejected',
+      reason: 'player_taken',
+    });
+  });
+
+  it('keeps a player unclaimable after his winner drops him later in the SAME run (self-snipe)', () => {
+    // A wins P1 (bid 20), then A's later claim drops P1 for N2 (bid 10).
+    // C's claim for P1 (bid 5) must still be rejected — P1 was awarded this
+    // run; the mid-run drop does not release him. Reason is 'outbid' here
+    // because P1 DOES carry a winning bid (20) strictly above C's 5.
+    const result = run({
+      claims: [
+        claim({ transactionId: 'a-win', teamId: 'A', addPlayerId: 'P1', bid: 20 }),
+        claim({ transactionId: 'a-drop', teamId: 'A', addPlayerId: 'N2', dropPlayerId: 'P1', bid: 10 }),
+        claim({ transactionId: 'c-snipe', teamId: 'C', addPlayerId: 'P1', bid: 5 }),
+      ],
+      standings: [],
+      rosters: emptyRosters('A', 'C'),
+      faabRemaining: new Map([['A', 100], ['C', 100]]),
+      waiverPriority: new Map([['A', 1], ['C', 2]]),
+    });
+    expect(decisionFor(result, 'a-win').outcome).toBe('awarded');
+    expect(decisionFor(result, 'a-drop').outcome).toBe('awarded');
+    expect(decisionFor(result, 'c-snipe')).toEqual({
+      transactionId: 'c-snipe',
+      outcome: 'rejected',
+      reason: 'outbid',
+    });
+  });
+
+  it('still frees capacity via a mid-run drop for the dropping team itself', () => {
+    // Full active pool; two swap claims each drop one incumbent. Both must be
+    // awarded: drops DO mutate the dropping team's member list (capacity)
+    // even though they never release players to other claims this run.
+    const result = run({
+      claims: [
+        claim({ transactionId: 's1', teamId: 'A', addPlayerId: 'N1', dropPlayerId: 'a0', bid: 30 }),
+        claim({ transactionId: 's2', teamId: 'A', addPlayerId: 'N2', dropPlayerId: 'a1', bid: 20 }),
+      ],
+      rosters: new Map([['A', activeMembers('a', 25)]]),
+      faabRemaining: new Map([['A', 100]]),
+      waiverPriority: new Map([['A', 1]]),
+    });
+    expect(decisionFor(result, 's1').outcome).toBe('awarded');
+    expect(decisionFor(result, 's2').outcome).toBe('awarded');
+  });
+
+  it('never awards the same player twice across a contested legal run (invariant holds silently)', () => {
+    // The no-double-award invariant (awarded addPlayerId uniqueness) is
+    // unreachable through the public API — the availability gate rejects any
+    // claim on an already-awarded player — so it exists as defense against a
+    // future weakening of that gate. This test drives a run dense with
+    // contested players, drops and would-be re-claims: it must complete
+    // without throwing, and a black-box recount from the decisions confirms
+    // each player was awarded at most once.
+    const claims: WaiverClaimInput[] = [
+      claim({ transactionId: 't1', teamId: 'A', addPlayerId: 'P1', bid: 30 }),
+      claim({ transactionId: 't2', teamId: 'B', addPlayerId: 'P1', bid: 30 }),
+      claim({ transactionId: 't3', teamId: 'C', addPlayerId: 'P1', bid: 10 }),
+      claim({ transactionId: 't4', teamId: 'A', addPlayerId: 'P2', dropPlayerId: 'P1', bid: 5 }),
+      claim({ transactionId: 't5', teamId: 'B', addPlayerId: 'P2', bid: 5 }),
+      claim({ transactionId: 't6', teamId: 'C', addPlayerId: 'zed', bid: 1 }),
+    ];
+    const result = run({
+      waivers: faabWaivers('rolling'),
+      claims,
+      standings: [],
+      rosters: new Map([['A', []], ['B', []], ['C', [{ playerId: 'zed', status: 'active' as const }]]]),
+      faabRemaining: new Map([['A', 100], ['B', 100], ['C', 100]]),
+      waiverPriority: new Map([['A', 1], ['B', 2], ['C', 3]]),
+    });
+    if (!result.ok) throw new Error('unreachable');
+    expect(result.value.decisions).toHaveLength(claims.length);
+    const byId = new Map(claims.map((c) => [c.transactionId, c]));
+    const awardedPlayers = result.value.decisions
+      .filter((d) => d.outcome === 'awarded')
+      .map((d) => byId.get(d.transactionId)?.addPlayerId);
+    expect(new Set(awardedPlayers).size).toBe(awardedPlayers.length);
+    // C's claim on his OWN rostered player is player_taken (rostered at start).
+    expect(decisionFor(result, 't6').reason).toBe('player_taken');
+  });
+});
+
 describe('resolveWaiverRun — invariants & contract', () => {
   it('returns an error result for a null bid in FAAB mode', () => {
     const result = run({
