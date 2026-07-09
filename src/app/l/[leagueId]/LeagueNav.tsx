@@ -19,6 +19,7 @@ export default function LeagueNav({
   const links = [
     { href: base, label: 'Home' },
     { href: `${base}/matchups`, label: 'Matchups' },
+    { href: `${base}/players`, label: 'Players' },
     { href: `${base}/trades`, label: 'Trades' },
     { href: `${base}/settings`, label: 'Settings' },
   ];
