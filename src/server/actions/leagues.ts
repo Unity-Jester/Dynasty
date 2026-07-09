@@ -52,10 +52,23 @@ function pgErrorCode(error: unknown): string | null {
   return null;
 }
 
-function buildTeamRows(leagueId: string, settings: LeagueSettings) {
-  const rows: { leagueId: string; name: string; inviteToken: string }[] = [];
+type NewTeamRow = {
+  leagueId: string;
+  name: string;
+  inviteToken: string;
+  faabRemaining: number | null;
+  waiverPriority: number;
+};
+
+// Seeds waiver state at creation (Phase 7 decision #8): FAAB leagues start every
+// team at the full budget; priority leagues leave faabRemaining NULL (no budget
+// concept). waiverPriority is creation order (1..teamCount) — the deterministic
+// initial order the run job also uses to lazy-init any NULLs.
+function buildTeamRows(leagueId: string, settings: LeagueSettings): NewTeamRow[] {
+  const faabRemaining = settings.waivers.mode === 'faab' ? settings.waivers.budget : null;
+  const rows: NewTeamRow[] = [];
   for (let i = 1; i <= settings.teamCount; i += 1) {
-    rows.push({ leagueId, name: `Team ${i}`, inviteToken: generateInviteToken() });
+    rows.push({ leagueId, name: `Team ${i}`, inviteToken: generateInviteToken(), faabRemaining, waiverPriority: i });
   }
   return rows;
 }

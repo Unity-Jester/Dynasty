@@ -1,0 +1,36 @@
+# run-waivers: resolves pending waiver claims across leagues. For each league
+# with pending claims it loads rosters/standings/budgets/priorities, runs the
+# deterministic waiver engine, and applies awards + FAAB debits + priority
+# rotation + per-claim resolutions in ONE transaction per league.
+#
+# Requires repo secrets APP_URL and CRON_SECRET.
+#
+# Unlike score-week/reconcile-stats this route needs NO season/week — it self-
+# selects every league with pending claims — so a param-less cron IS valid.
+# The weekly in-season schedule below (Wed 08:00 UTC, the classic waiver-
+# processing morning) is nonetheless COMMENTED OUT until deploy, so it never
+# fires against a half-configured environment.
+#
+#   schedule:
+#     - cron: '0 8 * * 3'   # Wed 08:00 UTC, in-season only
+name: run-waivers
+on:
+  # schedule:                     # enable at deploy — see note above
+  #   - cron: '0 8 * * 3'
+  workflow_dispatch:
+    inputs:
+      leagueId:
+        description: 'Optional single league UUID (blank = all leagues with pending claims)'
+        required: false
+        default: ''
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve pending waiver claims
+        run: |
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"leagueId\": \"${{ inputs.leagueId }}\"}" \
+            "${{ secrets.APP_URL }}/api/jobs/run-waivers"

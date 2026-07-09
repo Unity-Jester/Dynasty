@@ -253,16 +253,23 @@ async function insertLeagueAndSeason(
 }
 
 // Inserts one team per TeamPlan and returns a rosterId → new teamId map. Every
-// team gets a fresh single-use invite token (same idiom as createLeague).
+// team gets a fresh single-use invite token (same idiom as createLeague) and
+// its initial waiver state (Phase 7 decision #8): FAAB leagues seed the full
+// budget, priority leagues leave faabRemaining NULL; waiverPriority is the
+// plan's insertion order (1..N) — the same deterministic order the run job
+// lazy-inits NULLs with.
 async function insertTeams(
   tx: Tx,
   leagueId: string,
   plans: readonly TeamPlan[],
+  faabRemaining: number | null,
 ): Promise<Map<number, string>> {
-  const rows = plans.map((plan) => ({
+  const rows = plans.map((plan, i) => ({
     leagueId,
     name: plan.name,
     inviteToken: generateInviteToken(),
+    faabRemaining,
+    waiverPriority: i + 1,
   }));
   const inserted = await tx.insert(teams).values(rows).returning({ id: teams.id });
   invariant(inserted.length === plans.length, 'team insert count mismatch');
@@ -370,7 +377,8 @@ async function executeImport(
     const name = LeagueNameSchema.parse(plan.leagueNameRaw);
     const leagueId = await getDb().transaction(async (tx) => {
       const id = await insertLeagueAndSeason(tx, name, sleeperLeagueId, userId, plan);
-      const rosterToTeam = await insertTeams(tx, id, plan.teams);
+      const faabRemaining = plan.settings.waivers.mode === 'faab' ? plan.settings.waivers.budget : null;
+      const rosterToTeam = await insertTeams(tx, id, plan.teams, faabRemaining);
 
       const memberRows = flattenMembers(id, plan.teams, rosterToTeam);
       const membersInserted = await insertMembers(tx, memberRows);

@@ -1,7 +1,7 @@
 import 'server-only';
-import { and, eq, gte, inArray, lte } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { getDb } from '@/server/db';
-import { lineupSlots, pickAssets, rosterMembers } from '@/server/schema';
+import { pickAssets, rosterMembers } from '@/server/schema';
 import { invariant } from '@/lib/invariant';
 import type { TradePayload } from '@/engine/transactions/payloads';
 import {
@@ -11,21 +11,17 @@ import {
   type TradePlayerMove,
 } from '@/engine/transactions/validateTrade';
 import {
-  fetchLockedNflTeams,
-  fetchPlayerNflTeams,
   guardedTradeStatus,
   loadTradeContext,
   toValidationInput,
   type DbTx,
 } from '@/server/trades/tradeQueries';
+import { clearDroppedLineupSlots } from '@/server/rosterCleanup';
 
 // Move-loop bounds: TradePayload caps each side at 15 players / 10 picks
 // (payloads.ts), so a legal plan never exceeds these (Rule 2).
 const MAX_PLAYER_MOVES = 30;
 const MAX_PICK_MOVES = 20;
-// Lineup-cleanup bound: 2 teams x 18 weeks x <=30 starter rows per team-week.
-const MAX_CLEANUP_ROWS = 2 * 18 * 30;
-const NFL_FINAL_WEEK = 18;
 
 const PG_UNIQUE_VIOLATION = '23505';
 
@@ -70,7 +66,7 @@ type ExecuteArgs = {
  * re-reads rosters/picks/settings/current-week (in-transaction = the final
  * authority), re-validates, applies the engine's execution plan (guarded
  * per-row writes), nulls moved players out of current+future lineup slots
- * (lock-aware for the current week — see cleanLineupSlots), and finally the
+ * (lock-aware for the current week — see clearDroppedLineupSlots), and finally the
  * guarded status transition to 'processed'. ANY failure
  * throws, so the whole transaction rolls back — the transaction row's status
  * is exactly what it was before the call on every failure path.
@@ -126,7 +122,13 @@ async function runExecution(tx: DbTx, args: ExecuteArgs): Promise<void> {
 
   await movePlayers(tx, args.leagueId, plan.playerMoves);
   await movePicks(tx, args.leagueId, args.payload, plan.pickMoves);
-  await cleanLineupSlots(tx, args.payload, plan.playerMoves, loaded.context);
+  await clearDroppedLineupSlots(tx, {
+    teamIds: [args.payload.proposingTeamId, args.payload.counterpartyTeamId],
+    droppedPlayerIds: plan.playerMoves.map((move) => move.playerId),
+    currentSeason: loaded.context.currentSeason,
+    currentWeek: loaded.context.currentWeek,
+    now: new Date(),
+  });
 
   const processed = await guardedTradeStatus(
     tx,
@@ -236,93 +238,4 @@ async function movePicks(
     movedCount += 1;
   }
   invariant(movedCount === moves.length, 'moved pick rows diverged from the plan');
-}
-
-// Decision #5, refined by review: null (not delete) every lineup slot
-// referencing a moved player for the CURRENT season's current-or-future
-// weeks — no ghost starters. "No ghost starters" applies to slots that can
-// still be CHANGED: a current-week slot whose player's NFL game has already
-// kicked off is history-in-progress, exactly like a past week — the points
-// were earned in the old lineup and must survive a scoreWeek re-run (Sleeper
-// parity; matches the lineup editor's lock semantics in locks.ts). So:
-//   - weeks > currentWeek: always nulled;
-//   - week == currentWeek: nulled only for players whose game has NOT locked,
-//     with the locked set derived INSIDE the transaction like every other
-//     execute-time read.
-// Past weeks stay untouched. Scoped to the two trading teams: the same
-// sleeper playerId legitimately appears in OTHER leagues' lineup rows
-// (lineup_slots has no leagueId column), and within this league a moved
-// player's rows can only belong to the team that rostered them. The week
-// window is explicit and bounded; a finished season yields an empty window
-// (currentWeek = lastRegularWeek + 1 via currentTradeWeek) rather than
-// clobbering the whole season's history.
-async function cleanLineupSlots(
-  tx: DbTx,
-  payload: TradePayload,
-  playerMoves: readonly TradePlayerMove[],
-  context: { currentSeason: number; currentWeek: number },
-): Promise<void> {
-  if (playerMoves.length === 0 || context.currentWeek > NFL_FINAL_WEEK) {
-    return;
-  }
-  const teamIds = [payload.proposingTeamId, payload.counterpartyTeamId];
-  const movedPlayerIds = playerMoves.map((move) => move.playerId);
-  invariant(movedPlayerIds.length <= MAX_PLAYER_MOVES, 'cleanup player list exceeded its bound');
-
-  if (context.currentWeek < NFL_FINAL_WEEK) {
-    await clearSlots(tx, teamIds, context.currentSeason, {
-      weekFrom: context.currentWeek + 1,
-      weekTo: NFL_FINAL_WEEK,
-      playerIds: movedPlayerIds,
-    });
-  }
-
-  const unlockedIds = await unlockedMovedPlayers(tx, context, movedPlayerIds);
-  if (unlockedIds.length === 0) {
-    return;
-  }
-  await clearSlots(tx, teamIds, context.currentSeason, {
-    weekFrom: context.currentWeek,
-    weekTo: context.currentWeek,
-    playerIds: unlockedIds,
-  });
-}
-
-// Moved players whose current-week slots are still editable: their NFL team
-// has no kicked-off game this week (free agents — nflTeam null — never lock).
-async function unlockedMovedPlayers(
-  tx: DbTx,
-  context: { currentSeason: number; currentWeek: number },
-  movedPlayerIds: readonly string[],
-): Promise<string[]> {
-  const locked = await fetchLockedNflTeams(tx, context.currentSeason, context.currentWeek, new Date());
-  const nflTeamById = await fetchPlayerNflTeams(tx, movedPlayerIds);
-  return movedPlayerIds.filter((playerId) => {
-    const nflTeam = nflTeamById.get(playerId) ?? null;
-    return nflTeam === null || !locked.has(nflTeam);
-  });
-}
-
-async function clearSlots(
-  tx: DbTx,
-  teamIds: readonly string[],
-  season: number,
-  window: { weekFrom: number; weekTo: number; playerIds: readonly string[] },
-): Promise<void> {
-  invariant(window.weekFrom <= window.weekTo, 'cleanup week window is inverted');
-  invariant(window.playerIds.length > 0, 'cleanup called with no players');
-  const cleared = await tx
-    .update(lineupSlots)
-    .set({ playerId: null })
-    .where(
-      and(
-        inArray(lineupSlots.teamId, [...teamIds]),
-        eq(lineupSlots.season, season),
-        gte(lineupSlots.week, window.weekFrom),
-        lte(lineupSlots.week, window.weekTo),
-        inArray(lineupSlots.playerId, [...window.playerIds]),
-      ),
-    )
-    .returning({ id: lineupSlots.id });
-  invariant(cleared.length <= MAX_CLEANUP_ROWS, 'lineup cleanup exceeded its bound');
 }
