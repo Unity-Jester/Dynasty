@@ -23,6 +23,7 @@ export default function LineupEditor({
   roster,
   kickoffs,
   lockedNflTeams,
+  asCommissioner = false,
 }: {
   teamId: string;
   season: number;
@@ -31,6 +32,10 @@ export default function LineupEditor({
   roster: RosterPlayer[];
   kickoffs: Record<string, string>;
   lockedNflTeams: string[];
+  /** Commissioner override (Phase 7 Task 8) — bypasses locks server-side and
+   *  writes an audited commish transaction; callers pass lockedNflTeams=[]
+   *  so the UI's own lock indicators agree with what the server will accept. */
+  asCommissioner?: boolean;
 }) {
   const router = useRouter();
   const [instances, setInstances] = useState<SlotInstance[]>(() => initialInstances.slice(0, MAX_INSTANCES));
@@ -76,6 +81,7 @@ export default function LineupEditor({
       season,
       week,
       assignments: instances.map((i) => ({ slot: i.slot, slotIndex: i.slotIndex, playerId: i.playerId })),
+      asCommissioner,
     });
     setSaving(false);
     if (result.ok) {

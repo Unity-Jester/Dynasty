@@ -12,7 +12,9 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function ClaimRowDetail({ claim }: { claim: Extract<ResolvedClaim, { ok: true }> }) {
+// Exported for reuse by the activity feed (Phase 7 Task 8) — same claim
+// detail rendering, no third copy of the bid/drop/resolution line.
+export function ClaimRowDetail({ claim }: { claim: Extract<ResolvedClaim, { ok: true }> }) {
   const detail =
     claim.status === 'cancelled' ? 'You cancelled this claim.' : resolutionReasonText(claim.resolution);
   return (

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { and, desc, eq } from 'drizzle-orm';
 import { getDb } from '@/server/db';
-import { lineupSlots, players, rosterMembers, seasons, teams } from '@/server/schema';
+import { leagues, lineupSlots, players, rosterMembers, seasons, teams } from '@/server/schema';
 import { invariant } from '@/lib/invariant';
 import { STARTER_SLOTS } from '@/engine/lineup/eligibility';
 import { starterSlotCount, type LeagueSettings } from '@/engine/settings';
@@ -80,6 +80,14 @@ export async function fetchTeam(teamId: string): Promise<TeamRow | null> {
     .where(eq(teams.id, teamId))
     .limit(1);
   return row ?? null;
+}
+
+// League creator id, for the "Edit as commissioner" affordance (Phase 7 Task
+// 8) — a small page-local query rather than pulling in the trades module's
+// heavier fetchLeagueRow just for one column.
+export async function fetchLeagueCreator(leagueId: string): Promise<string | null> {
+  const [row] = await getDb().select({ createdBy: leagues.createdBy }).from(leagues).where(eq(leagues.id, leagueId)).limit(1);
+  return row?.createdBy ?? null;
 }
 
 export async function fetchLatestSeason(leagueId: string): Promise<SeasonRow | null> {

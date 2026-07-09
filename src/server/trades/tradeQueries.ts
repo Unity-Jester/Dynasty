@@ -71,7 +71,10 @@ async function fetchLatestSeasonRow(conn: DbConn, leagueId: string): Promise<Tra
   return row ?? null;
 }
 
-async function fetchRosterShapes(conn: DbConn, teamId: string): Promise<RosterMemberShape[]> {
+// Exported for reuse by commish.ts's force-add capacity check (Phase 7 Task
+// 8) — same bounded (league roster-slot totals) per-team roster read used by
+// trade validation, no reason for a third copy.
+export async function fetchRosterShapes(conn: DbConn, teamId: string): Promise<RosterMemberShape[]> {
   const rows = await conn
     .select({ playerId: rosterMembers.playerId, status: rosterMembers.status })
     .from(rosterMembers)
