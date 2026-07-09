@@ -64,26 +64,43 @@ type ForceAddArgs = {
   teamId: string;
   playerId: string;
   playerName: string;
-  settings: LeagueSettings;
   userId: string;
   now: Date;
 };
 
+// Settings for the in-tx capacity check, read through the SAME tx as every
+// other force-add read/write — in-transaction reads are the final authority
+// (the executeTrade/runWaivers convention). A failure throws, so the whole
+// transaction rolls back.
+async function loadForceAddSettings(tx: DbTx, leagueId: string): Promise<LeagueSettings> {
+  const result = await loadWaiverSettings(tx, leagueId);
+  if (!result.ok) {
+    throw new ForceAddAbort({
+      ok: false,
+      error: result.error === 'not_found' ? 'not_found' : 'invalid_settings',
+      detail: result.detail,
+    });
+  }
+  return result.settings;
+}
+
 // Final-authority checks + the write, all inside ONE transaction (mirrors
 // executeTrade.runExecution): re-check unrostered-in-league, re-check
-// capacity against a freshly-read roster, THEN insert. Capacity applies to
-// the commissioner too (binding decision #10) — force-add is validated, not
-// a raw bypass. Landed player status is 'active' (Sleeper parity: every
-// other "land a new player" path — trade, waiver award — lands 'active';
-// taxi/IR placement is a separate lineup-style move, not modeled here).
+// capacity against freshly-read settings + roster, THEN insert. Capacity
+// applies to the commissioner too (binding decision #10) — force-add is
+// validated, not a raw bypass. Landed player status is 'active' (Sleeper
+// parity: every other "land a new player" path — trade, waiver award —
+// lands 'active'; taxi/IR placement is a separate lineup-style move, not
+// modeled here).
 async function runForceAdd(tx: DbTx, args: ForceAddArgs): Promise<void> {
   if (await isPlayerRosteredInLeague(tx, args.leagueId, args.playerId)) {
     throw new ForceAddAbort({ ok: false, error: 'player_rostered' });
   }
 
+  const settings = await loadForceAddSettings(tx, args.leagueId);
   const members = await fetchRosterShapes(tx, args.teamId);
   const post: RosterMemberShape[] = [...members, { playerId: args.playerId, status: 'active' }];
-  const counts = validateRosterCounts(args.settings, post);
+  const counts = validateRosterCounts(settings, post);
   if (!counts.ok) {
     throw new ForceAddAbort({ ok: false, error: counts.error, detail: counts.detail });
   }
@@ -128,15 +145,6 @@ export async function commishForceAdd(input: unknown): Promise<CommishForceAddRe
     return { ok: false, error: 'not_found', detail: 'unknown player' };
   }
 
-  const settingsResult = await loadWaiverSettings(getDb(), gate.leagueId);
-  if (!settingsResult.ok) {
-    return {
-      ok: false,
-      error: settingsResult.error === 'not_found' ? 'not_found' : 'invalid_settings',
-      detail: settingsResult.detail,
-    };
-  }
-
   try {
     await getDb().transaction(async (tx) =>
       runForceAdd(tx, {
@@ -144,7 +152,6 @@ export async function commishForceAdd(input: unknown): Promise<CommishForceAddRe
         teamId: gate.teamId,
         playerId: parsed.data.playerId,
         playerName,
-        settings: settingsResult.settings,
         userId,
         now: new Date(),
       }),
@@ -204,17 +211,43 @@ type ForceDropArgs = {
   teamId: string;
   playerId: string;
   playerName: string;
-  season: number;
-  currentWeek: number;
   userId: string;
   now: Date;
 };
 
-// Guarded delete (final authority: a lost race — the player already left the
-// roster via a trade/waiver/other commish action — is a typed conflict, not
-// a silent no-op), then the SAME lock-aware lineup cleanup trades/waivers
-// use, then the audit row. All one transaction (binding decision #5/#10).
+// The lineup-cleanup window (season + current week), derived through the
+// SAME tx as the delete/cleanup writes — in-transaction reads are the final
+// authority (the executeTrade/runWaivers convention; loadTradeContext and
+// applyLeagueRun both derive currentWeek on their own conn). A settings
+// failure throws, rolling back the whole transaction.
+async function deriveDropCleanupWindow(
+  tx: DbTx,
+  leagueId: string,
+  now: Date,
+): Promise<{ season: number; currentWeek: number }> {
+  const result = await loadWaiverSettings(tx, leagueId);
+  if (!result.ok) {
+    throw new ForceDropAbort({
+      ok: false,
+      error: result.error === 'not_found' ? 'not_found' : 'invalid_settings',
+      detail: result.detail,
+    });
+  }
+  const lastRegularWeek = Math.max(1, result.settings.playoffs.startWeek - 1);
+  const currentWeek = await currentTradeWeek(lastRegularWeek, now, (w) =>
+    fetchWeekKickoffs(tx, result.year, w),
+  );
+  return { season: result.year, currentWeek };
+}
+
+// Derive the cleanup window (in-tx read), guarded delete (final authority: a
+// lost race — the player already left the roster via a trade/waiver/other
+// commish action — is a typed conflict, not a silent no-op), then the SAME
+// lock-aware lineup cleanup trades/waivers use, then the audit row. All one
+// transaction (binding decision #5/#10).
 async function runForceDrop(tx: DbTx, args: ForceDropArgs): Promise<void> {
+  const { season, currentWeek } = await deriveDropCleanupWindow(tx, args.leagueId, args.now);
+
   const deleted = await tx
     .delete(rosterMembers)
     .where(
@@ -237,8 +270,8 @@ async function runForceDrop(tx: DbTx, args: ForceDropArgs): Promise<void> {
   await clearDroppedLineupSlots(tx, {
     teamIds: [args.teamId],
     droppedPlayerIds: [args.playerId],
-    currentSeason: args.season,
-    currentWeek: args.currentWeek,
+    currentSeason: season,
+    currentWeek,
     now: args.now,
   });
 
@@ -274,23 +307,9 @@ export async function commishForceDrop(input: unknown): Promise<CommishForceDrop
     return { ok: false, error: 'not_rostered' };
   }
 
-  const settingsResult = await loadWaiverSettings(getDb(), gate.leagueId);
-  if (!settingsResult.ok) {
-    return {
-      ok: false,
-      error: settingsResult.error === 'not_found' ? 'not_found' : 'invalid_settings',
-      detail: settingsResult.detail,
-    };
-  }
   // Membership was just confirmed above, and rosterMembers.playerId is a
   // foreign key into players — the catalog row is guaranteed to exist.
   const playerName = (await fetchPlayerName(getDb(), parsed.data.playerId)) ?? parsed.data.playerId;
-
-  const now = new Date();
-  const lastRegularWeek = Math.max(1, settingsResult.settings.playoffs.startWeek - 1);
-  const currentWeek = await currentTradeWeek(lastRegularWeek, now, (w) =>
-    fetchWeekKickoffs(getDb(), settingsResult.year, w),
-  );
 
   try {
     await getDb().transaction(async (tx) =>
@@ -299,10 +318,8 @@ export async function commishForceDrop(input: unknown): Promise<CommishForceDrop
         teamId: gate.teamId,
         playerId: parsed.data.playerId,
         playerName,
-        season: settingsResult.year,
-        currentWeek,
         userId,
-        now,
+        now: new Date(),
       }),
     );
     return { ok: true };
