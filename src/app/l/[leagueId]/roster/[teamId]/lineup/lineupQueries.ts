@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { and, desc, eq } from 'drizzle-orm';
 import { getDb } from '@/server/db';
-import { lineupSlots, players, rosterMembers, seasons, teams } from '@/server/schema';
+import { leagues, lineupSlots, players, rosterMembers, seasons, teams } from '@/server/schema';
 import { invariant } from '@/lib/invariant';
 import { STARTER_SLOTS } from '@/engine/lineup/eligibility';
 import { starterSlotCount, type LeagueSettings } from '@/engine/settings';
 import { getKickoffs, getLockedNflTeams } from '@/server/lineup/locks';
+import { firstOpenWeek } from '@/server/currentWeek';
 import type { RosterPlayer, SlotInstance } from './types';
 
 const WeekParam = z.coerce.number().int().min(1).max(18);
@@ -69,43 +70,6 @@ export async function fetchCurrentLineup(
   return rows;
 }
 
-// The regular season is weeks 1..(startWeek - 1); bounded by the same NFL
-// week ceiling used elsewhere (Rule 2).
-const MAX_WEEKS_TO_SCAN = 18;
-
-/**
- * The default week to land on when no ?week= searchParam is given: the first
- * week in [1, lastRegularWeek] whose kickoffs are not ALL in the past (i.e.
- * still has at least one game yet to start, or has no games recorded yet —
- * July has none, so week 1 is "open"). Falls back to week 1 if every week has
- * fully kicked off. Bounded loop over a fixed, small week range (Rule 2);
- * `fetchWeekKickoffs` is called at most MAX_WEEKS_TO_SCAN times.
- */
-export async function firstOpenWeek(
-  lastRegularWeek: number,
-  now: Date,
-  fetchWeekKickoffs: (week: number) => Promise<ReadonlyMap<string, string>>,
-): Promise<number> {
-  const cap = Math.min(lastRegularWeek, MAX_WEEKS_TO_SCAN);
-  for (let week = 1; week <= cap; week += 1) {
-    const kickoffs = await fetchWeekKickoffs(week);
-    if (kickoffs.size === 0) {
-      return week; // no games recorded yet — treat as open
-    }
-    let allPast = true;
-    for (const iso of kickoffs.values()) {
-      if (new Date(iso).getTime() > now.getTime()) {
-        allPast = false;
-        break;
-      }
-    }
-    if (!allPast) {
-      return week;
-    }
-  }
-  return 1;
-}
-
 export type TeamRow = { id: string; leagueId: string; name: string; ownerId: string | null };
 export type SeasonRow = { id: string; leagueId: string; year: number; settings: unknown };
 
@@ -116,6 +80,14 @@ export async function fetchTeam(teamId: string): Promise<TeamRow | null> {
     .where(eq(teams.id, teamId))
     .limit(1);
   return row ?? null;
+}
+
+// League creator id, for the "Edit as commissioner" affordance (Phase 7 Task
+// 8) — a small page-local query rather than pulling in the trades module's
+// heavier fetchLeagueRow just for one column.
+export async function fetchLeagueCreator(leagueId: string): Promise<string | null> {
+  const [row] = await getDb().select({ createdBy: leagues.createdBy }).from(leagues).where(eq(leagues.id, leagueId)).limit(1);
+  return row?.createdBy ?? null;
 }
 
 export async function fetchLatestSeason(leagueId: string): Promise<SeasonRow | null> {

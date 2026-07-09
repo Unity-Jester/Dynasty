@@ -49,6 +49,15 @@ export const teams = pgTable('teams', {
   name: text('name').notNull(),
   ownerId: uuid('owner_id').references(() => profiles.id), // null until claimed
   inviteToken: text('invite_token'), // single-use claim token
+  // Waiver state, nullable by design: lazy-init on first waiver run for a
+  // season rather than eagerly stamped at team creation. A native (non-
+  // imported) league's teams stay NULL here until createLeague/import seeds
+  // them (Phase 7 Task 6). NULL is never a valid value to read as "0" —
+  // callers must lazy-init explicitly. The one existing imported league's
+  // teams were one-time backfilled to faab_remaining=500 / a name-ordered
+  // waiver_priority by drizzle/0020_teams-waiver-backfill.sql.
+  faabRemaining: integer('faab_remaining'),
+  waiverPriority: integer('waiver_priority'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   // Active invite tokens must be globally unique; claimed teams have NULL
@@ -187,4 +196,24 @@ export const nflGames = pgTable('nfl_games', {
 }, (t) => [
   uniqueIndex('nfl_games_team_week_uq').on(t.season, t.week, t.nflTeam),
   index('nfl_games_season_week_idx').on(t.season, t.week),
+]);
+
+// The audit ledger: every roster/pick mutation (trade, waiver claim, commish
+// action) flows through a row here. payload is a zod discriminated union
+// (src/engine/transactions/payloads.ts) — parse on every read, never cast
+// (Rule 5); it is intentionally untyped at the DB layer.
+export const transactions = pgTable('transactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  leagueId: uuid('league_id').notNull().references(() => leagues.id),
+  type: text('type', { enum: ['trade', 'waiver_claim', 'commish'] }).notNull(),
+  status: text('status', {
+    enum: ['pending', 'accepted', 'pending_review', 'processed', 'rejected', 'cancelled', 'vetoed'],
+  }).notNull(),
+  payload: jsonb('payload').notNull(),
+  createdBy: uuid('created_by').notNull().references(() => profiles.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+}, (t) => [
+  index('transactions_league_status_idx').on(t.leagueId, t.status),
+  index('transactions_league_created_idx').on(t.leagueId, t.createdAt),
 ]);

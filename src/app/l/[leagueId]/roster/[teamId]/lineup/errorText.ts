@@ -17,6 +17,7 @@ export const LINEUP_ERROR_TEXT: Record<SaveLineupError, string> = {
   unauthenticated: 'Your session expired. Sign in again to save your lineup.',
   not_found: 'This team or league could not be found.',
   not_owner: 'Only the team owner can set this lineup.',
+  not_creator: 'Only the league commissioner can edit another team’s lineup.',
   wrong_season: 'This league has moved to a new season. Reload the page and try again.',
   invalid_settings: 'This league’s settings failed validation. Ask your commissioner to check settings.',
   week_out_of_range: 'That week is outside the regular season and can’t be edited here.',

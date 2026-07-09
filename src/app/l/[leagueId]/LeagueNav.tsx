@@ -16,9 +16,19 @@ export default function LeagueNav({
 }) {
   const pathname = usePathname();
   const base = `/l/${leagueId}`;
+  // Activity and Commish are always shown to everyone (Phase 7 Task 8): this
+  // layout has no viewer identity to gate on (it never calls the Supabase
+  // client), and plumbing auth in here just for a nav link would touch every
+  // page load. Both destinations self-gate instead — the commish page shows
+  // a "commissioner only" panel to non-creators, and every mutating action
+  // re-checks league.createdBy server-side regardless of what the nav shows.
   const links = [
     { href: base, label: 'Home' },
     { href: `${base}/matchups`, label: 'Matchups' },
+    { href: `${base}/players`, label: 'Players' },
+    { href: `${base}/trades`, label: 'Trades' },
+    { href: `${base}/activity`, label: 'Activity' },
+    { href: `${base}/commish`, label: 'Commish' },
     { href: `${base}/settings`, label: 'Settings' },
   ];
 
