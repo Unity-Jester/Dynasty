@@ -151,8 +151,7 @@ export async function fetchWaiverTransaction(
 /**
  * Guarded status-only transition for a waiver claim: UPDATE only where the row
  * is still `from` AND is a waiver_claim; a lost race matches zero rows and
- * returns false. Used by cancelClaim (pending->cancelled) and the run job's
- * unparseable-row reject (pending->rejected).
+ * returns false. Used by cancelClaim (pending->cancelled).
  */
 export async function guardedWaiverStatus(
   conn: DbConn,
@@ -174,6 +173,48 @@ export async function guardedWaiverStatus(
     )
     .returning({ id: transactions.id });
   invariant(updated.length <= 1, 'guarded status update touched more than one row');
+  return updated.length === 1;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Best-effort guarded reject (pending->rejected) of a claim whose stored
+ * payload no longer parses as a WaiverClaimPayload. When the payload is still
+ * a plain object, a resolution-style annotation is merged in so the audit
+ * trail records WHY the claim was rejected; the merged document still fails
+ * the payload schema (fine — the UI already renders unreadable transactions
+ * degraded). Non-object garbage is left untouched — a bare status flip —
+ * rather than fabricating a payload that was never submitted; for those rows
+ * the reason lives only in the status + resolvedAt.
+ */
+export async function rejectUnparseableClaim(
+  conn: DbConn,
+  transactionId: string,
+  rawPayload: unknown,
+  now: Date,
+): Promise<boolean> {
+  const annotated = isPlainObject(rawPayload)
+    ? { ...rawPayload, resolution: { outcome: 'rejected', reason: 'invalid_payload' } }
+    : null;
+  const updated = await conn
+    .update(transactions)
+    .set(
+      annotated === null
+        ? { status: 'rejected', resolvedAt: now }
+        : { status: 'rejected', payload: annotated, resolvedAt: now },
+    )
+    .where(
+      and(
+        eq(transactions.id, transactionId),
+        eq(transactions.type, 'waiver_claim'),
+        eq(transactions.status, 'pending'),
+      ),
+    )
+    .returning({ id: transactions.id });
+  invariant(updated.length <= 1, 'guarded unparseable reject touched more than one row');
   return updated.length === 1;
 }
 

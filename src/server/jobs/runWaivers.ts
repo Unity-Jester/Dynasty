@@ -2,7 +2,7 @@ import 'server-only';
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '@/server/db';
 import { rosterMembers, teams } from '@/server/schema';
-import { invariant } from '@/lib/invariant';
+import { invariant, InvariantError } from '@/lib/invariant';
 import type { LeagueSettings } from '@/engine/settings';
 import { computeStandings } from '@/engine/standings';
 import {
@@ -23,8 +23,8 @@ import {
   fetchPendingWaiverLeagueIds,
   fetchSeasonMatchupResults,
   fetchWeekKickoffs,
-  guardedWaiverStatus,
   loadWaiverSettings,
+  rejectUnparseableClaim,
   resolveWaiverClaim,
   type DbConn,
   type PendingClaimRow,
@@ -66,6 +66,15 @@ function describeAbort(error: unknown): string {
   if (error instanceof WaiverAbort) {
     return error.message;
   }
+  if (error instanceof InvariantError) {
+    // A violated invariant is a code BUG, not roster drift. executeTrade's
+    // convention is to rethrow these (crash loudly) — but here the plan's
+    // per-league isolation requirement wins: one league's bug must never block
+    // the other leagues' runs. So it is CONTAINED instead of rethrown, tagged
+    // distinctly so a league wedged by a bug reads as a bug (not routine
+    // drift) in every run report and in processWaiversNow's return.
+    return `INVARIANT (bug): ${error.message}`;
+  }
   const code = pgErrorCode(error);
   if (code === PG_UNIQUE_VIOLATION) {
     // roster_members_league_player_uq fired: the awarded player was rostered
@@ -82,21 +91,38 @@ function describeAbort(error: unknown): string {
 
 // ---- pure input construction ------------------------------------------------
 
-type ParsedClaims = { claims: WaiverClaimInput[]; badRowIds: string[] };
+// A pending row the run must reject WITHOUT feeding the engine:
+//  - 'invalid_payload': the stored payload no longer parses (audit annotation
+//    is best-effort — see rejectUnparseableClaim);
+//  - 'invalid_bid_for_mode': FAAB league but the claim has no bid (a commish
+//    flipped waivers.mode from priority while this claim was pending). The
+//    payload parses, so it gets a proper resolution payload.
+type QuarantinedClaim =
+  | { id: string; reason: 'invalid_payload'; rawPayload: unknown }
+  | { id: string; reason: 'invalid_bid_for_mode'; payload: WaiverClaimPayload };
 
-// Parse each pending row's payload via parseTransactionPayload (never a cast).
-// A row that no longer parses is quarantined as a bad row (rejected in the tx)
-// rather than crashing the league run (engine contract, decision #9).
-function parseClaims(rows: readonly PendingClaimRow[]): ParsedClaims {
+type ParsedClaims = { claims: WaiverClaimInput[]; quarantined: QuarantinedClaim[] };
+
+// Parse each pending row's payload via parseTransactionPayload (never a cast)
+// and validate its bid against the CURRENT waiver mode. Bad rows are
+// quarantined (rejected in the tx) rather than crashing the league run (engine
+// contract, decision #9). FAAB + null bid is quarantined here so the engine's
+// {ok:false} bad-bid branch is unreachable from this job; priority + non-null
+// bid is fine (the engine ignores bids in priority mode).
+function parseClaims(rows: readonly PendingClaimRow[], mode: 'faab' | 'priority'): ParsedClaims {
   const claims: WaiverClaimInput[] = [];
-  const badRowIds: string[] = [];
+  const quarantined: QuarantinedClaim[] = [];
   for (const row of rows) {
     const parsed = parseTransactionPayload('waiver_claim', row.payload);
     if (!parsed.ok || parsed.value.kind !== 'waiver_claim') {
-      badRowIds.push(row.id);
+      quarantined.push({ id: row.id, reason: 'invalid_payload', rawPayload: row.payload });
       continue;
     }
     const p = parsed.value;
+    if (mode === 'faab' && p.bid === null) {
+      quarantined.push({ id: row.id, reason: 'invalid_bid_for_mode', payload: p });
+      continue;
+    }
     claims.push({
       transactionId: row.id,
       teamId: p.teamId,
@@ -106,7 +132,7 @@ function parseClaims(rows: readonly PendingClaimRow[]): ParsedClaims {
       createdAt: row.createdAt.toISOString(),
     });
   }
-  return { claims, badRowIds };
+  return { claims, quarantined };
 }
 
 // FAAB mode: every team's live balance, NULL lazy-initialized to the settings
@@ -172,7 +198,7 @@ type ApplyContext = {
   settings: LeagueSettings;
   decisions: readonly WaiverDecision[];
   claimById: ReadonlyMap<string, WaiverClaimInput>;
-  badRowIds: readonly string[];
+  quarantined: readonly QuarantinedClaim[];
   newFaab: ReadonlyMap<string, number>;
   newPriority: ReadonlyMap<string, number>;
 };
@@ -270,19 +296,36 @@ async function writePriority(tx: DbConn, leagueId: string, newPriority: Readonly
   }
 }
 
-// The whole apply for ONE league — all-or-nothing. Order: reject bad rows,
-// apply every decision (awards + guarded resolutions), then persist the engine's
-// newFaab (verbatim, all teams) and newPriority (verbatim; a 1..N renumber in
-// rolling modes, otherwise the input echoed — which also persists lazy-init).
+// Guarded reject of one quarantined row, recording WHY in the payload:
+// bid-mode quarantines parse, so they get a proper payload + resolution like
+// the engine-decision path; unparseable rows get the best-effort annotation.
+async function rejectQuarantined(tx: DbConn, q: QuarantinedClaim, now: Date): Promise<void> {
+  const won =
+    q.reason === 'invalid_payload'
+      ? await rejectUnparseableClaim(tx, q.id, q.rawPayload, now)
+      : await resolveWaiverClaim(
+          tx,
+          q.id,
+          'rejected',
+          { ...q.payload, resolution: { outcome: 'rejected', reason: q.reason } },
+          now,
+        );
+  if (!won) {
+    throw new WaiverAbort(`quarantined claim ${q.id} left pending before reject`);
+  }
+}
+
+// The whole apply for ONE league — all-or-nothing. Order: reject quarantined
+// rows, apply every decision (awards + guarded resolutions), then persist the
+// engine's newFaab (verbatim, all teams) and newPriority (verbatim; a 1..N
+// renumber in rolling modes, otherwise the input echoed — which also persists
+// lazy-init).
 async function applyRunTx(tx: DbConn, ctx: ApplyContext): Promise<void> {
   const now = new Date();
   const currentWeek = await deriveCurrentWeek(tx, ctx.season, ctx.settings, now);
 
-  for (const id of ctx.badRowIds) {
-    const won = await guardedWaiverStatus(tx, id, 'pending', 'rejected', now);
-    if (!won) {
-      throw new WaiverAbort(`unparseable claim ${id} left pending before reject`);
-    }
+  for (const q of ctx.quarantined) {
+    await rejectQuarantined(tx, q, now);
   }
   for (const decision of ctx.decisions) {
     await applyDecision(tx, ctx, currentWeek, now, decision);
@@ -309,7 +352,10 @@ async function applyLeagueRun(leagueId: string): Promise<LeagueRunOutcome> {
   }
   const { settings, year } = settingsResult;
 
-  const { claims, badRowIds } = parseClaims(await fetchPendingWaiverClaims(db, leagueId));
+  const { claims, quarantined } = parseClaims(
+    await fetchPendingWaiverClaims(db, leagueId),
+    settings.waivers.mode,
+  );
   const teamStates = await fetchLeagueTeamStates(db, leagueId);
   const rosters = await fetchLeagueRostersByTeam(db, leagueId, teamStates.map((t) => t.id));
   const standings = computeStandings(await fetchSeasonMatchupResults(db, leagueId, year));
@@ -327,6 +373,10 @@ async function applyLeagueRun(leagueId: string): Promise<LeagueRunOutcome> {
     settings,
   });
   if (!run.ok) {
+    // The engine returns {ok:false} ONLY for a null/invalid FAAB bid, and
+    // parseClaims quarantines exactly those claims before they reach it — so
+    // this branch is believed unreachable from this job. Kept as a defensive
+    // backstop: skip the league (claims stay pending) rather than crash.
     return { status: 'skipped', error: `engine: ${run.error}` };
   }
 
@@ -337,7 +387,7 @@ async function applyLeagueRun(leagueId: string): Promise<LeagueRunOutcome> {
     settings,
     decisions,
     claimById: new Map(claims.map((c) => [c.transactionId, c])),
-    badRowIds,
+    quarantined,
     newFaab,
     newPriority,
   };
@@ -347,8 +397,8 @@ async function applyLeagueRun(leagueId: string): Promise<LeagueRunOutcome> {
     return { status: 'skipped', error: describeAbort(error) };
   }
   const awarded = decisions.filter((d) => d.outcome === 'awarded').length;
-  // Rejected = engine rejections + quarantined unparseable rows (both closed).
-  const rejected = decisions.length - awarded + badRowIds.length;
+  // Rejected = engine rejections + quarantined rows (both terminally closed).
+  const rejected = decisions.length - awarded + quarantined.length;
   return { status: 'processed', awarded, rejected };
 }
 
